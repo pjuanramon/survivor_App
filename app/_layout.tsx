@@ -28,15 +28,24 @@ export default function RootLayout() {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
-          html, body, #root {
+          html, body {
             background-color: #0A0A0A !important;
             color: #FFFFFF !important;
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
+            overflow-y: auto !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          }
+          #root, #root > div {
+            background-color: #0A0A0A !important;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            font-family: 'Inter_400Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            flex: 1;
+            width: 100%;
           }
           * {
             box-sizing: border-box;

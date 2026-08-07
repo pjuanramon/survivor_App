@@ -1,36 +1,68 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, SafeAreaView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { Trophy, Shield } from 'lucide-react-native';
+import { Trophy, Shield, AlertCircle, CheckCircle2 } from 'lucide-react-native';
 
 export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function handleSubmit() {
-    if (!email || !password) {
-      Alert.alert('Atención', 'Por favor ingresa tu email y contraseña.');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      setErrorMessage('Por favor ingresa tu correo electrónico y contraseña.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     setLoading(true);
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-      });
-      if (error) Alert.alert('Error', error.message);
-      else Alert.alert('¡Cuenta creada!', 'Revisa tu email o inicia sesión.');
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
-      });
-      if (error) Alert.alert('Error de inicio de sesión', error.message);
+    try {
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+        });
+
+        if (error) {
+          setErrorMessage(error.message);
+        } else if (data?.user && data?.session) {
+          setSuccessMessage('¡Cuenta creada e inicio de sesión correcto! Entrando...');
+        } else {
+          setSuccessMessage('¡Cuenta creada correctamente! Inicia sesión para entrar.');
+          setIsSignUp(false);
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password,
+        });
+
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            setErrorMessage('Correo o contraseña incorrectos. Verifica tus datos o crea una cuenta si no la tienes.');
+          } else {
+            setErrorMessage(error.message);
+          }
+        } else if (data?.session) {
+          setSuccessMessage('¡Bienvenido! Entrando a la liga...');
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Ocurrió un error inesperado al conectar con el servidor.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -51,6 +83,37 @@ export default function AuthScreen() {
 
           {/* Form Box */}
           <View style={styles.card}>
+            <View style={styles.modeRow}>
+              <TouchableOpacity 
+                onPress={() => { setIsSignUp(false); setErrorMessage(null); setSuccessMessage(null); }}
+                style={[styles.tabToggle, !isSignUp && styles.tabToggleActive]}
+              >
+                <Text style={[styles.tabToggleText, !isSignUp && styles.tabToggleTextActive]}>INICIAR SESIÓN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => { setIsSignUp(true); setErrorMessage(null); setSuccessMessage(null); }}
+                style={[styles.tabToggle, isSignUp && styles.tabToggleActive]}
+              >
+                <Text style={[styles.tabToggleText, isSignUp && styles.tabToggleTextActive]}>REGISTRARME</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Error Banner */}
+            {errorMessage && (
+              <View style={styles.errorBox}>
+                <AlertCircle size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+
+            {/* Success Banner */}
+            {successMessage && (
+              <View style={styles.successBox}>
+                <CheckCircle2 size={18} color="#00FF9D" style={{ marginRight: 8 }} />
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            )}
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Correo electrónico</Text>
               <TextInput
@@ -83,16 +146,7 @@ export default function AuthScreen() {
               style={[styles.button, loading && styles.buttonDisabled]}
             >
               <Text style={styles.buttonText}>
-                {loading ? 'PROCESANDO...' : (isSignUp ? 'REGISTRARME' : 'ENTRAR A LA LIGA')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={() => setIsSignUp(!isSignUp)}
-              style={styles.toggleButton}
-            >
-              <Text style={styles.toggleText}>
-                {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate aquí'}
+                {loading ? 'PROCESANDO...' : (isSignUp ? 'CREAR MI CUENTA' : 'ENTRAR A LA LIGA')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -128,7 +182,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   iconBadge: {
     width: 72,
@@ -143,7 +197,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#00FF9D',
-    fontSize: 40,
+    fontSize: 38,
     fontWeight: '900',
     letterSpacing: 2,
     marginBottom: 6,
@@ -151,7 +205,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#888888',
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
     fontWeight: '500',
   },
@@ -161,14 +215,74 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: '#262626',
-    boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.5)',
+  },
+  modeRow: {
+    flexDirection: 'row',
+    backgroundColor: '#0F0F0F',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#222222',
+  },
+  tabToggle: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  tabToggleActive: {
+    backgroundColor: '#00FF9D',
+  },
+  tabToggleText: {
+    color: '#888888',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tabToggleTextActive: {
+    color: '#000000',
+  },
+  errorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  errorText: {
+    color: '#F87171',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  successBox: {
+    backgroundColor: 'rgba(0, 255, 157, 0.12)',
+    borderColor: 'rgba(0, 255, 157, 0.3)',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  successText: {
+    color: '#00FF9D',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   label: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -180,18 +294,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#333333',
-    fontSize: 16,
+    fontSize: 15,
   },
   button: {
     backgroundColor: '#00FF9D',
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#00FF9D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -202,21 +312,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  toggleButton: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  toggleText: {
-    color: '#888888',
-    fontSize: 14,
-    fontWeight: '500',
-  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 28,
+    marginTop: 24,
   },
   footerText: {
     color: '#666666',

@@ -35,11 +35,15 @@ export default function AuthScreen() {
         });
 
         if (error) {
-          setErrorMessage(error.message);
+          if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already exists')) {
+            setErrorMessage('Este correo ya está registrado. Haz clic en "INICIAR SESIÓN" arriba.');
+          } else {
+            setErrorMessage(error.message);
+          }
         } else if (data?.user && data?.session) {
-          setSuccessMessage('¡Cuenta creada e inicio de sesión correcto! Entrando...');
-        } else {
-          setSuccessMessage('¡Cuenta creada correctamente! Inicia sesión para entrar.');
+          setSuccessMessage('¡Cuenta creada con éxito! Entrando a la liga...');
+        } else if (data?.user) {
+          setSuccessMessage('📩 ¡Cuenta creada! Si tu Supabase solicita confirmación, revisa tu correo (o carpeta de spam) para activarla.');
           setIsSignUp(false);
         }
       } else {
@@ -49,13 +53,15 @@ export default function AuthScreen() {
         });
 
         if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            setErrorMessage('Correo o contraseña incorrectos. Verifica tus datos o crea una cuenta si no la tienes.');
+          if (error.message.toLowerCase().includes('email not confirmed')) {
+            setErrorMessage('⚠️ Tu cuenta aún no ha sido confirmada por correo. Revisa tu bandeja de entrada o spam para hacer clic en el enlace.');
+          } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+            setErrorMessage('Correo o contraseña incorrectos. Verifica que la contraseña sea la misma con la que te registraste.');
           } else {
             setErrorMessage(error.message);
           }
         } else if (data?.session) {
-          setSuccessMessage('¡Bienvenido! Entrando a la liga...');
+          setSuccessMessage('¡Bienvenido de nuevo! Entrando...');
         }
       }
     } catch (err: any) {

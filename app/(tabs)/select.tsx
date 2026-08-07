@@ -1,19 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
-import { styled } from 'nativewind';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { Trophy, Clock, Lock, BookOpen } from 'lucide-react-native';
+import { Trophy, Clock, Lock, BookOpen, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouch = styled(TouchableOpacity);
 
 interface Match {
   id: string;
   home_team: { id: string; name: string };
   away_team: { id: string; name: string };
-  match_date?: string;
 }
 
 interface Entry {
@@ -49,7 +43,6 @@ export default function SelectScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Cargar Configuración de la Liga
       const { data: configData } = await supabase
         .from('sur_config')
         .select('*')
@@ -66,7 +59,6 @@ export default function SelectScreen() {
         picks_deadline: configData?.picks_deadline || defaultDeadline,
       });
 
-      // 2. Cargar Picks (entries) del usuario
       const { data: entriesData } = await supabase
         .from('sur_entries')
         .select('*')
@@ -76,12 +68,10 @@ export default function SelectScreen() {
       setEntries(entriesData || []);
       if (entriesData?.length) setSelectedEntry(entriesData[0].id);
 
-      // 3. Cargar Partidos de la Jornada activa
       const { data: matchesData } = await supabase
         .from('sur_matches')
         .select(`
           id,
-          match_date,
           home_team:sur_teams!home_team_id(id, name),
           away_team:sur_teams!away_team_id(id, name)
         `)
@@ -95,7 +85,6 @@ export default function SelectScreen() {
     }
   }
 
-  // Cargar equipos ya usados y la selección actual cuando cambia el Pick seleccionado
   useEffect(() => {
     if (selectedEntry && config.current_jornada) {
       fetchEntrySelections(selectedEntry, config.current_jornada);
@@ -103,20 +92,17 @@ export default function SelectScreen() {
   }, [selectedEntry, config.current_jornada]);
 
   async function fetchEntrySelections(entryId: string, jornada: number) {
-    // Equipos usados en jornadas anteriores
     const { data: allSelections } = await supabase
       .from('sur_selections')
       .select('team_id, jornada')
       .eq('entry_id', entryId);
     
     if (allSelections) {
-      // Equipos usados en jornadas pasadas (< jornada actual)
       const pastUsed = allSelections
         .filter(s => s.jornada < jornada)
         .map(s => s.team_id);
       setUsedTeams(pastUsed);
 
-      // Selección hecha para esta jornada activa
       const thisJornadaSel = allSelections.find(s => s.jornada === jornada);
       if (thisJornadaSel) {
         setCurrentSelection(thisJornadaSel.team_id);
@@ -143,7 +129,6 @@ export default function SelectScreen() {
 
     setSubmitting(true);
     try {
-      // Si ya existía selección para esta jornada, actualizarla (upsert)
       const { error } = await supabase.from('sur_selections').upsert({
         entry_id: selectedEntry,
         team_id: selectedTeam,
@@ -166,127 +151,354 @@ export default function SelectScreen() {
   const canSelect = config.picks_open && !isDeadlinePassed;
 
   if (loading) return (
-    <StyledView className="flex-1 bg-background justify-center items-center">
+    <View style={styles.loadingContainer}>
       <ActivityIndicator color="#00FF9D" size="large" />
-    </StyledView>
+    </View>
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView className="p-4">
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
-        <StyledView className="flex-row justify-between items-center mt-2 mb-4">
-          <StyledView>
-            <StyledText className="text-white text-3xl font-black">Elige tu equipo</StyledText>
-            <StyledText className="text-primary font-bold text-base">Jornada {config.current_jornada}</StyledText>
-          </StyledView>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Elige tu equipo</Text>
+            <Text style={styles.headerSubtitle}>Jornada {config.current_jornada}</Text>
+          </View>
 
-          <StyledTouch 
+          <TouchableOpacity 
             onPress={() => router.push('/rules')}
-            className="flex-row items-center bg-surface px-3 py-2 rounded-full border border-gray-800"
+            style={styles.rulesPill}
+            activeOpacity={0.7}
           >
             <BookOpen size={16} color="#00FF9D" />
-            <StyledText className="text-white text-xs font-bold ml-1.5">Reglas</StyledText>
-          </StyledTouch>
-        </StyledView>
+            <Text style={styles.rulesPillText}>Reglas</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Status / Deadline Banner */}
-        <StyledView className={`p-4 rounded-2xl mb-6 flex-row items-center border ${canSelect ? 'bg-surface border-gray-800' : 'bg-red-950/40 border-red-800/40'}`}>
+        {/* Banner Deadline */}
+        <View style={[styles.statusBanner, !canSelect && styles.bannerClosed]}>
           {canSelect ? (
-            <Clock size={20} color="#00FF9D" />
+            <Clock size={20} color="#00FF9D" style={{ marginRight: 10 }} />
           ) : (
-            <Lock size={20} color="#EF4444" />
+            <Lock size={20} color="#EF4444" style={{ marginRight: 10 }} />
           )}
-          <StyledView className="ml-3 flex-1">
-            <StyledText className={`font-bold text-sm ${canSelect ? 'text-white' : 'text-red-400'}`}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.bannerTitle, !canSelect && { color: '#F87171' }]}>
               {canSelect ? 'Plazo de selección abierto' : 'Picks Cerrados para esta jornada'}
-            </StyledText>
+            </Text>
             {config.picks_deadline && (
-              <StyledText className="text-muted text-xs mt-0.5">
+              <Text style={styles.bannerSubtitle}>
                 Cierre: {new Date(config.picks_deadline).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-              </StyledText>
+              </Text>
             )}
-          </StyledView>
-        </StyledView>
+          </View>
+        </View>
         
-        {/* Selector de Pick / Vida */}
-        <StyledText className="text-muted text-xs font-bold uppercase mb-2">Selecciona tu Pick:</StyledText>
-        <StyledView className="flex-row mb-6">
+        {/* Selector Pick */}
+        <Text style={styles.sectionLabel}>SELECCIONA TU PICK:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
           {entries.map(entry => (
-            <StyledTouch 
+            <TouchableOpacity 
               key={entry.id}
               onPress={() => setSelectedEntry(entry.id)}
-              className={`mr-2 px-4 py-2 rounded-full border ${selectedEntry === entry.id ? 'bg-primary border-primary' : 'border-gray-700 bg-surface'}`}
+              style={[styles.pickChip, selectedEntry === entry.id && styles.pickChipActive]}
+              activeOpacity={0.7}
             >
-              <StyledText className={`font-bold ${selectedEntry === entry.id ? 'text-black' : 'text-white'}`}>
+              <Text style={[styles.pickChipText, selectedEntry === entry.id && styles.pickChipTextActive]}>
                 {entry.entry_name}
-              </StyledText>
-            </StyledTouch>
+              </Text>
+            </TouchableOpacity>
           ))}
-        </StyledView>
+        </ScrollView>
 
         {/* Lista de Partidos */}
-        <StyledText className="text-muted text-xs font-bold uppercase mb-3">Partidos Jornada {config.current_jornada}:</StyledText>
+        <Text style={styles.sectionLabel}>PARTIDOS JORNADA {config.current_jornada}:</Text>
         {matches.length === 0 ? (
-          <StyledView className="bg-surface rounded-2xl p-6 items-center border border-gray-800">
-            <StyledText className="text-muted text-center">No hay partidos cargados para la Jornada {config.current_jornada}.</StyledText>
-          </StyledView>
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>No hay partidos cargados para la Jornada {config.current_jornada}.</Text>
+          </View>
         ) : (
           matches.map(match => (
-            <StyledView key={match.id} className="bg-surface rounded-3xl p-4 mb-4 border border-gray-800">
-              <StyledView className="flex-row justify-between items-center">
+            <View key={match.id} style={styles.matchCard}>
+              <View style={styles.teamsRow}>
                 
                 {/* Home Team */}
-                <StyledTouch 
+                <TouchableOpacity 
                   onPress={() => canSelect && setSelectedTeam(match.home_team.id)}
                   disabled={!canSelect || usedTeams.includes(match.home_team.id)}
-                  className={`flex-1 p-4 rounded-2xl items-center ${selectedTeam === match.home_team.id ? 'bg-primary' : 'bg-gray-900'} ${usedTeams.includes(match.home_team.id) || !canSelect ? 'opacity-40' : ''}`}
+                  style={[
+                    styles.teamButton,
+                    selectedTeam === match.home_team.id && styles.teamButtonSelected,
+                    (usedTeams.includes(match.home_team.id) || !canSelect) && styles.teamButtonDisabled
+                  ]}
+                  activeOpacity={0.7}
                 >
-                  <StyledText className={`font-bold text-center ${selectedTeam === match.home_team.id ? 'text-black' : 'text-white'}`}>
+                  <Text style={[styles.teamName, selectedTeam === match.home_team.id && styles.teamNameSelected]}>
                     {match.home_team.name}
-                  </StyledText>
-                  {usedTeams.includes(match.home_team.id) && <StyledText className="text-[10px] text-red-500 font-bold mt-1">USADO</StyledText>}
-                  {currentSelection === match.home_team.id && <StyledText className="text-[10px] text-black font-extrabold mt-1">SELECCIONADO</StyledText>}
-                </StyledTouch>
+                  </Text>
+                  {usedTeams.includes(match.home_team.id) && (
+                    <Text style={styles.usedBadge}>USADO</Text>
+                  )}
+                  {currentSelection === match.home_team.id && (
+                    <Text style={styles.selectedBadge}>✓ SELECCIONADO</Text>
+                  )}
+                </TouchableOpacity>
 
-                <StyledText className="text-muted mx-3 font-black text-xs">VS</StyledText>
+                <Text style={styles.vsText}>VS</Text>
 
                 {/* Away Team */}
-                <StyledTouch 
+                <TouchableOpacity 
                   onPress={() => canSelect && setSelectedTeam(match.away_team.id)}
                   disabled={!canSelect || usedTeams.includes(match.away_team.id)}
-                  className={`flex-1 p-4 rounded-2xl items-center ${selectedTeam === match.away_team.id ? 'bg-primary' : 'bg-gray-900'} ${usedTeams.includes(match.away_team.id) || !canSelect ? 'opacity-40' : ''}`}
+                  style={[
+                    styles.teamButton,
+                    selectedTeam === match.away_team.id && styles.teamButtonSelected,
+                    (usedTeams.includes(match.away_team.id) || !canSelect) && styles.teamButtonDisabled
+                  ]}
+                  activeOpacity={0.7}
                 >
-                  <StyledText className={`font-bold text-center ${selectedTeam === match.away_team.id ? 'text-black' : 'text-white'}`}>
+                  <Text style={[styles.teamName, selectedTeam === match.away_team.id && styles.teamNameSelected]}>
                     {match.away_team.name}
-                  </StyledText>
-                  {usedTeams.includes(match.away_team.id) && <StyledText className="text-[10px] text-red-500 font-bold mt-1">USADO</StyledText>}
-                  {currentSelection === match.away_team.id && <StyledText className="text-[10px] text-black font-extrabold mt-1">SELECCIONADO</StyledText>}
-                </StyledTouch>
+                  </Text>
+                  {usedTeams.includes(match.away_team.id) && (
+                    <Text style={styles.usedBadge}>USADO</Text>
+                  )}
+                  {currentSelection === match.away_team.id && (
+                    <Text style={styles.selectedBadge}>✓ SELECCIONADO</Text>
+                  )}
+                </TouchableOpacity>
 
-              </StyledView>
-            </StyledView>
+              </View>
+            </View>
           ))
         )}
 
-        <StyledView className="h-28" />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Botón de Confirmación Flotante */}
       {selectedTeam && canSelect && (
-        <StyledView className="absolute bottom-6 left-4 right-4">
-          <StyledTouch 
+        <View style={styles.floatingContainer}>
+          <TouchableOpacity 
             onPress={handleConfirm}
             disabled={submitting}
-            className="bg-primary p-5 rounded-2xl flex-row justify-center items-center shadow-2xl shadow-primary/40"
+            style={[styles.floatingBtn, submitting && styles.btnDisabled]}
+            activeOpacity={0.8}
           >
-            <Trophy size={20} color="black" />
-            <StyledText className="text-black font-black text-lg ml-2">
+            <Trophy size={20} color="#000000" />
+            <Text style={styles.floatingBtnText}>
               {submitting ? 'GUARDANDO...' : 'CONFIRMAR SELECCIÓN'}
-            </StyledText>
-          </StyledTouch>
-        </StyledView>
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0A0A0A',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0A0A0A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    padding: 20,
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  headerSubtitle: {
+    color: '#00FF9D',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  rulesPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161616',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  rulesPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  statusBanner: {
+    backgroundColor: '#161616',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#262626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  bannerClosed: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  bannerTitle: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  bannerSubtitle: {
+    color: '#888888',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sectionLabel: {
+    color: '#888888',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  pickChip: {
+    marginRight: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333333',
+    backgroundColor: '#161616',
+  },
+  pickChipActive: {
+    backgroundColor: '#00FF9D',
+    borderColor: '#00FF9D',
+  },
+  pickChipText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  pickChipTextActive: {
+    color: '#000000',
+    fontWeight: '900',
+  },
+  emptyBox: {
+    backgroundColor: '#161616',
+    padding: 24,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#262626',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#888888',
+    textAlign: 'center',
+  },
+  matchCard: {
+    backgroundColor: '#161616',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  teamsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  teamButton: {
+    flex: 1,
+    backgroundColor: '#0F0F0F',
+    padding: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#222222',
+  },
+  teamButtonSelected: {
+    backgroundColor: '#00FF9D',
+    borderColor: '#00FF9D',
+  },
+  teamButtonDisabled: {
+    opacity: 0.35,
+  },
+  teamName: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textAlign: 'center',
+    fontSize: 15,
+  },
+  teamNameSelected: {
+    color: '#000000',
+    fontWeight: '900',
+  },
+  usedBadge: {
+    color: '#F87171',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  selectedBadge: {
+    color: '#000000',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  vsText: {
+    color: '#666666',
+    fontWeight: '900',
+    fontSize: 12,
+    marginHorizontal: 10,
+  },
+  floatingContainer: {
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+  },
+  floatingBtn: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: '#00FF9D',
+    paddingVertical: 18,
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#00FF9D',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  floatingBtnText: {
+    color: '#000000',
+    fontWeight: '900',
+    fontSize: 17,
+    marginLeft: 8,
+    letterSpacing: 0.5,
+  },
+});

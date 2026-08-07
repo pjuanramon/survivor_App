@@ -1,13 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
-import { styled } from 'nativewind';
+import { View, Text, TouchableOpacity, SafeAreaView, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { LogOut, BookOpen, User as UserIcon } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
-const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouch = styled(TouchableOpacity);
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -18,31 +13,120 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background p-6">
-      <StyledView className="items-center mt-10">
-        <StyledView className="w-24 h-24 bg-surface rounded-full items-center justify-center border-2 border-primary mb-4">
-          <UserIcon size={40} color="#00FF9D" />
-        </StyledView>
-        <StyledText className="text-white text-2xl font-black">Mi Perfil</StyledText>
-      </StyledView>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.content}>
+          
+          {/* Header User */}
+          <View style={styles.header}>
+            <View style={styles.avatarBox}>
+              <UserIcon size={44} color="#00FF9D" />
+            </View>
+            <Text style={styles.title}>Mi Perfil</Text>
+            <Text style={styles.subtitle}>Survivor Football La Liga 26/27</Text>
+          </View>
 
-      <StyledView className="mt-10 space-y-4">
-        <StyledTouch 
-          onPress={() => router.push('/rules')}
-          className="bg-surface p-5 rounded-3xl flex-row items-center border border-gray-800 mb-4"
-        >
-          <BookOpen size={20} color="#00FF9D" />
-          <StyledText className="text-white font-bold ml-4 text-lg">Reglamento Oficial</StyledText>
-        </StyledTouch>
+          {/* Action Buttons */}
+          <View style={styles.menuGroup}>
+            <TouchableOpacity 
+              onPress={() => router.push('/rules')}
+              style={styles.menuItem}
+              activeOpacity={0.7}
+            >
+              <BookOpen size={22} color="#00FF9D" />
+              <Text style={styles.menuItemText}>Reglamento Oficial</Text>
+            </TouchableOpacity>
 
-        <StyledTouch 
-          onPress={handleSignOut}
-          className="bg-red-900/20 p-5 rounded-3xl flex-row items-center border border-red-900/30 mt-6"
-        >
-          <LogOut size={20} color="#EF4444" />
-          <StyledText className="text-red-500 font-bold ml-4 text-lg">Cerrar Sesión</StyledText>
-        </StyledTouch>
-      </StyledView>
+            <TouchableOpacity 
+              onPress={handleSignOut}
+              style={[styles.menuItem, styles.signOutItem]}
+              activeOpacity={0.7}
+            >
+              <LogOut size={22} color="#EF4444" />
+              <Text style={styles.signOutText}>Cerrar Sesión</Text>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#0A0A0A',
+  },
+  container: {
+    flex: 1,
+    padding: 24,
+    backgroundColor: '#0A0A0A',
+    alignItems: 'center',
+  },
+  content: {
+    width: '100%',
+    maxWidth: 500,
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  avatarBox: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#161616',
+    borderWidth: 2,
+    borderColor: '#00FF9D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#00FF9D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  subtitle: {
+    color: '#888888',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  menuGroup: {
+    width: '100%',
+    gap: 16,
+  },
+  menuItem: {
+    backgroundColor: '#161616',
+    padding: 20,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#262626',
+  },
+  menuItemText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 17,
+    marginLeft: 16,
+  },
+  signOutItem: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    marginTop: 12,
+  },
+  signOutText: {
+    color: '#EF4444',
+    fontWeight: '800',
+    fontSize: 17,
+    marginLeft: 16,
+  },
+});

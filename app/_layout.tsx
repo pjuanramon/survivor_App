@@ -5,6 +5,8 @@ import { Session } from '@supabase/supabase-js';
 import { useFonts, Inter_400Regular, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 
+import { Platform, View } from 'react-native';
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -18,6 +20,35 @@ export default function RootLayout() {
     Inter_700Bold,
     Inter_900Black,
   });
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'survivor-global-styles';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          html, body, #root {
+            background-color: #0A0A0A !important;
+            color: #FFFFFF !important;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Inter_400Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          input, button, select, textarea {
+            font-family: inherit;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,13 +66,10 @@ export default function RootLayout() {
 
     async function checkAuthAndNavigate() {
       if (!session) {
-        // If not logged in and not at root/index, go to root (login)
         if (segments.length > 0) {
           router.replace('/');
         }
       } else {
-        // User is logged in
-        // Check if user already has entries
         const { data: entries } = await supabase
           .from('sur_entries')
           .select('id')
@@ -65,11 +93,13 @@ export default function RootLayout() {
   }, [session, initialized, segments, fontsLoaded]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" options={{ animation: 'fade' }} />
-      <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-      <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-      <Stack.Screen name="rules" options={{ animation: 'slide_from_right' }} />
-    </Stack>
+    <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0A0A0A' } }}>
+        <Stack.Screen name="index" options={{ animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="rules" options={{ animation: 'slide_from_right' }} />
+      </Stack>
+    </View>
   );
 }

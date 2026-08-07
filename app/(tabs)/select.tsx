@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { Trophy, Clock, Lock, BookOpen, Check } from 'lucide-react-native';
+import { Trophy, Clock, Lock, BookOpen, AlertTriangle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 interface Match {
@@ -114,6 +114,21 @@ export default function SelectScreen() {
     }
   }
 
+  function getMatchPostponedInfo(match: Match, jornada: number) {
+    if (jornada === 1) {
+      const home = match.home_team?.name || '';
+      const away = match.away_team?.name || '';
+      const postponedTeams = ['Real Madrid', 'Real Sociedad', 'FC Barcelona', 'Athletic', 'Valencia', 'Betis'];
+      if (postponedTeams.some(t => home.includes(t) || away.includes(t))) {
+        return {
+          isPostponed: true,
+          reason: '⚠️ PARTIDO APLAZADO (Se juega tras el inicio de la J2). No elegible en el pick de la J1.'
+        };
+      }
+    }
+    return { isPostponed: false, reason: null };
+  }
+
   async function handleConfirm() {
     if (!selectedEntry || !selectedTeam) return;
 
@@ -219,59 +234,85 @@ export default function SelectScreen() {
             <Text style={styles.emptyText}>No hay partidos cargados para la Jornada {config.current_jornada}.</Text>
           </View>
         ) : (
-          matches.map(match => (
-            <View key={match.id} style={styles.matchCard}>
-              <View style={styles.teamsRow}>
-                
-                {/* Home Team */}
-                <TouchableOpacity 
-                  onPress={() => canSelect && setSelectedTeam(match.home_team.id)}
-                  disabled={!canSelect || usedTeams.includes(match.home_team.id)}
-                  style={[
-                    styles.teamButton,
-                    selectedTeam === match.home_team.id && styles.teamButtonSelected,
-                    (usedTeams.includes(match.home_team.id) || !canSelect) && styles.teamButtonDisabled
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.teamName, selectedTeam === match.home_team.id && styles.teamNameSelected]}>
-                    {match.home_team.name}
-                  </Text>
-                  {usedTeams.includes(match.home_team.id) && (
-                    <Text style={styles.usedBadge}>USADO</Text>
-                  )}
-                  {currentSelection === match.home_team.id && (
-                    <Text style={styles.selectedBadge}>✓ SELECCIONADO</Text>
-                  )}
-                </TouchableOpacity>
+          matches.map(match => {
+            const { isPostponed, reason } = getMatchPostponedInfo(match, config.current_jornada);
+            const isHomeDisabled = isPostponed || !canSelect || usedTeams.includes(match.home_team.id);
+            const isAwayDisabled = isPostponed || !canSelect || usedTeams.includes(match.away_team.id);
 
-                <Text style={styles.vsText}>VS</Text>
+            return (
+              <View key={match.id} style={[styles.matchCard, isPostponed && styles.matchCardPostponed]}>
+                {isPostponed && (
+                  <View style={styles.postponedNoticeBox}>
+                    <AlertTriangle size={14} color="#FBBF24" style={{ marginRight: 6 }} />
+                    <Text style={styles.postponedNoticeText}>{reason}</Text>
+                  </View>
+                )}
 
-                {/* Away Team */}
-                <TouchableOpacity 
-                  onPress={() => canSelect && setSelectedTeam(match.away_team.id)}
-                  disabled={!canSelect || usedTeams.includes(match.away_team.id)}
-                  style={[
-                    styles.teamButton,
-                    selectedTeam === match.away_team.id && styles.teamButtonSelected,
-                    (usedTeams.includes(match.away_team.id) || !canSelect) && styles.teamButtonDisabled
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.teamName, selectedTeam === match.away_team.id && styles.teamNameSelected]}>
-                    {match.away_team.name}
-                  </Text>
-                  {usedTeams.includes(match.away_team.id) && (
-                    <Text style={styles.usedBadge}>USADO</Text>
-                  )}
-                  {currentSelection === match.away_team.id && (
-                    <Text style={styles.selectedBadge}>✓ SELECCIONADO</Text>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.teamsRow}>
+                  {/* Home Team */}
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (isPostponed) {
+                        Alert.alert('Partido Aplazado', 'Este partido se juega tras el arranque de la Jornada 2, por lo que no se puede seleccionar en el pick de la J1.');
+                      } else if (canSelect) {
+                        setSelectedTeam(match.home_team.id);
+                      }
+                    }}
+                    disabled={isHomeDisabled}
+                    style={[
+                      styles.teamButton,
+                      selectedTeam === match.home_team.id && styles.teamButtonSelected,
+                      isHomeDisabled && styles.teamButtonDisabled
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.teamName, selectedTeam === match.home_team.id && styles.teamNameSelected]}>
+                      {match.home_team.name}
+                    </Text>
+                    {isPostponed ? (
+                      <Text style={styles.postponedBadge}>NO ELEGIBLE</Text>
+                    ) : usedTeams.includes(match.home_team.id) ? (
+                      <Text style={styles.usedBadge}>USADO</Text>
+                    ) : currentSelection === match.home_team.id ? (
+                      <Text style={styles.selectedBadge}>✓ SELECCIONADO</Text>
+                    ) : null}
+                  </TouchableOpacity>
 
+                  <Text style={styles.vsText}>VS</Text>
+
+                  {/* Away Team */}
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (isPostponed) {
+                        Alert.alert('Partido Aplazado', 'Este partido se juega tras el arranque de la Jornada 2, por lo que no se puede seleccionar en el pick de la J1.');
+                      } else if (canSelect) {
+                        setSelectedTeam(match.away_team.id);
+                      }
+                    }}
+                    disabled={isAwayDisabled}
+                    style={[
+                      styles.teamButton,
+                      selectedTeam === match.away_team.id && styles.teamButtonSelected,
+                      isAwayDisabled && styles.teamButtonDisabled
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.teamName, selectedTeam === match.away_team.id && styles.teamNameSelected]}>
+                      {match.away_team.name}
+                    </Text>
+                    {isPostponed ? (
+                      <Text style={styles.postponedBadge}>NO ELEGIBLE</Text>
+                    ) : usedTeams.includes(match.away_team.id) ? (
+                      <Text style={styles.usedBadge}>USADO</Text>
+                    ) : currentSelection === match.away_team.id ? (
+                      <Text style={styles.selectedBadge}>✓ SELECCIONADO</Text>
+                    ) : null}
+                  </TouchableOpacity>
+
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
 
         <View style={{ height: 100 }} />
@@ -421,6 +462,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#262626',
   },
+  matchCardPostponed: {
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: '#14120D',
+  },
+  postponedNoticeBox: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  postponedNoticeText: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
+    lineHeight: 16,
+  },
   teamsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -454,6 +517,12 @@ const styles = StyleSheet.create({
   },
   usedBadge: {
     color: '#F87171',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  postponedBadge: {
+    color: '#FBBF24',
     fontSize: 10,
     fontWeight: '900',
     marginTop: 4,

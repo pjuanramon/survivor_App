@@ -1,0 +1,11 @@
+[
+  {"home_team_id": "0efe2922-ba58-46c0-b162-61ea2d4de469", "away_team_id": "9e7b6dea-2647-452f-823e-b843cccdfc04", "jornada": 35, "home_score": 0, "away_score": 1},
+  {"home_team_id": "e10ba04f-6ef2-401c-b0d4-5eef3f963250", "away_team_id": "df49bb4e-de19-4706-8fe2-3c799b2639ce", "jornada": 35, "home_score": 0, "away_score": 1},
+  {"home_team_id": "c4269106-c2bc-4dc0-a6e2-135bb69f26ee", "away_team_id": "d8cbe089-21ef-4da7-a619-f79f0466c7c2", "jornada": 35, "home_score": 2, "away_score": 0},
+  {"home_team_id": "0c636338-3c7b-4661-8169-a5af52fcc199", "away_team_id": "2dc49f88-5415-4a4d-8c7d-07eba83caf13", "jornada": 35, "home_score": 3, "away_score": 2},
+  {"home_team_id": "a2025ae9-ffcf-40fa-b9e4-8931e862ec2c", "away_team_id": "662e9951-bc6d-4581-adaa-8ed359ddf4f6", "jornada": 35, "home_score": 1, "away_score": 1},
+  {"home_team_id": "e4fcd300-69a0-4ddb-959a-ce39268ae4c8", "away_team_id": "65f1d6c7-d631-483c-8fb2-828dc2a071c1", "jornada": 35, "home_score": 1, "away_score": 1},
+  {"home_team_id": "67a57c95-292c-4bec-955d-37213989e748", "away_team_id": "8a0ab689-d73e-43bb-9f9f-2aabbd2fdf4f", "jornada": 35, "home_score": 2, "away_score": 2},
+  {"home_team_id": "9140da95-c296-4d2f-8323-418f4de89d03", "away_team_id": "a6f03329-5eb8-4124-b155-d904f0b0f83f", "jornada": 35, "home_score": 2, "away_score": 1},
+  {"home_team_id": "8d6cf660-4477-4b26-9917-e8add1b329ae", "away_team_id": "15b5dac4-aaa5-44f1-9450-23a358e83946", "jornada": 35, "home_score": 0, "away_score": 0}
+]

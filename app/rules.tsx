@@ -1,26 +1,32 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BookOpen, Clock, Award, AlertTriangle, ArrowLeft } from 'lucide-react-native';
+import { BookOpen, Clock, Award, AlertTriangle, ArrowLeft, Home } from 'lucide-react-native';
 
 export default function RulesScreen() {
   const router = useRouter();
+
+  function handleGoBack() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          {router.canGoBack() && (
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              style={styles.backBtn}
-              activeOpacity={0.7}
-            >
-              <ArrowLeft size={20} color="#00FF9D" />
-            </TouchableOpacity>
-          )}
-          <View>
+          <TouchableOpacity 
+            onPress={handleGoBack}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={22} color="#00FF9D" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
             <Text style={styles.title}>Reglamento Oficial</Text>
             <Text style={styles.subtitle}>Survivor Football La Liga 26/27</Text>
           </View>
@@ -60,6 +66,9 @@ export default function RulesScreen() {
           </Text>
           <Text style={styles.bulletText}>
             • Si no eliges equipo antes del cierre, tu pick no acumula puntos y puede sufrir la pérdida automática de 1 vida.
+          </Text>
+          <Text style={styles.bulletText}>
+            • <Text style={styles.boldWhite}>Flexibilidad de Cambio:</Text> Puedes modificar tu elección las veces que quieras antes del inicio del primer partido.
           </Text>
         </View>
 
@@ -103,6 +112,16 @@ export default function RulesScreen() {
           </Text>
         </View>
 
+        {/* Bottom Return Action Button */}
+        <TouchableOpacity 
+          onPress={handleGoBack}
+          style={styles.returnBtn}
+          activeOpacity={0.8}
+        >
+          <Home size={20} color="#000000" style={{ marginRight: 8 }} />
+          <Text style={styles.returnBtnText}>VOLVER A MIS PICKS</Text>
+        </TouchableOpacity>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -128,7 +147,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginRight: 14,
-    padding: 10,
+    padding: 12,
     backgroundColor: '#161616',
     borderRadius: 20,
     borderWidth: 1,
@@ -205,5 +224,25 @@ const styles = StyleSheet.create({
     color: '#CCCCCC',
     fontSize: 12,
     lineHeight: 18,
+  },
+  returnBtn: {
+    backgroundColor: '#00FF9D',
+    paddingVertical: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+    shadowColor: '#00FF9D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  returnBtnText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

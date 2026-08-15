@@ -129,7 +129,7 @@ export default function SelectScreen() {
     if (jornada === 1) {
       const home = match.home_team?.name || '';
       const away = match.away_team?.name || '';
-      const postponedTeams = ['Real Madrid', 'Real Sociedad', 'FC Barcelona', 'Athletic', 'Valencia', 'Betis'];
+      const postponedTeams = ['Real Madrid', 'Real Sociedad', 'FC Barcelona', 'Athletic', 'Valencia', 'Betis', 'Celta', 'Osasuna'];
       if (postponedTeams.some(t => home.includes(t) || away.includes(t))) {
         return {
           isPostponed: true,

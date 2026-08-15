@@ -73,7 +73,7 @@ export default function OnboardingScreen() {
             <Heart size={32} color="#00FF9D" />
           </View>
           
-          <Text style={styles.title}>¿CUÁNTAS VIDAS?</Text>
+          <Text style={styles.title}>¿CUÁNTOS PICKS?</Text>
           <Text style={styles.subtitle}>
             Puedes competir con hasta 5 picks independientes. Cada pick es una oportunidad única de sobrevivir en la liga.
           </Text>
@@ -89,7 +89,7 @@ export default function OnboardingScreen() {
 
             <View style={styles.countWrapper}>
               <Text style={styles.countText}>{pickCount}</Text>
-              <Text style={styles.countLabel}>{pickCount === 1 ? 'PICK / VIDA' : 'PICKS / VIDAS'}</Text>
+              <Text style={styles.countLabel}>{pickCount === 1 ? 'PICK INDEPENDIENTE' : 'PICKS INDEPENDIENTES'}</Text>
             </View>
 
             <TouchableOpacity 

@@ -161,7 +161,7 @@ export default function DashboardScreen() {
         {picks.length === 0 ? (
           <View style={styles.emptyCard}>
             <ShieldAlert size={48} color="#F59E0B" />
-            <Text style={styles.emptyTitle}>Sin vidas creadas</Text>
+            <Text style={styles.emptyTitle}>Sin picks registrados</Text>
             <Text style={styles.emptySubtitle}>Aún no tienes picks configurados para esta temporada.</Text>
             <TouchableOpacity 
               onPress={() => router.replace('/onboarding')}

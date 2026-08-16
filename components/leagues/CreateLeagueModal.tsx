@@ -8,6 +8,7 @@ import {
   ScrollView,
   Share,
   Alert,
+  Platform,
 } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { Modal } from '../ui/Modal';
@@ -37,6 +38,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
   const [leagueName, setLeagueName] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState('⚽');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdLeague, setCreatedLeague] = useState<any | null>(null);
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       fetchCompetitions();
       setCreatedLeague(null);
       setLeagueName('');
+      setErrorMessage(null);
     }
   }, [visible]);
 
@@ -83,12 +86,14 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
   };
 
   const handleCreate = async () => {
+    setErrorMessage(null);
+
     if (!leagueName.trim()) {
-      Alert.alert('Nombre requerido', 'Introduce un nombre para tu liga');
+      setErrorMessage('Introduce un nombre para tu liga');
       return;
     }
     if (!selectedCompId) {
-      Alert.alert('Competición requerida', 'Selecciona una competición');
+      setErrorMessage('Selecciona una competición');
       return;
     }
 
@@ -103,7 +108,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       });
 
       if (!result.success || !result.league) {
-        Alert.alert('Error al crear', result.error || 'No se pudo crear la liga. Intenta de nuevo.');
+        setErrorMessage(result.error || 'No se pudo crear la liga. Intenta de nuevo.');
         return;
       }
 
@@ -112,7 +117,6 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       const user = session?.user || (await supabase.auth.getUser()).data?.user;
 
       if (user) {
-        // Check entry doesn't already exist (idempotent)
         const { data: existingEntry } = await supabase
           .from('sur_entries')
           .select('id')
@@ -121,7 +125,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
           .maybeSingle();
 
         if (!existingEntry) {
-          const { error: entryError } = await supabase.from('sur_entries').insert({
+          await supabase.from('sur_entries').insert({
             player_id: user.id,
             entry_name: 'Pick 1',
             league_id: result.league.id,
@@ -129,10 +133,6 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
             total_points: 0,
             total_gf: 0,
           });
-          if (entryError) {
-            console.error('Entry creation error:', entryError);
-            // Non-fatal: league was created, entry failed — still show success
-          }
         }
       }
 
@@ -146,7 +146,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       } as any);
     } catch (err: any) {
       console.error('handleCreate error:', err);
-      Alert.alert('Error inesperado', err?.message || 'Algo salió mal. Intenta de nuevo.');
+      setErrorMessage(err?.message || 'Algo salió mal. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -207,7 +207,10 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                 <TouchableOpacity
                   key={comp.id}
                   activeOpacity={0.7}
-                  onPress={() => setSelectedCompId(comp.id)}
+                  onPress={() => {
+                    setSelectedCompId(comp.id);
+                    setErrorMessage(null);
+                  }}
                   style={[
                     styles.compCard,
                     isSelected && styles.compCardSelected,
@@ -250,7 +253,10 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
             placeholder="Ej. Los Reyes del Fútbol, Compas FC..."
             placeholderTextColor={COLORS.textMuted}
             value={leagueName}
-            onChangeText={setLeagueName}
+            onChangeText={(t) => {
+              setLeagueName(t);
+              setErrorMessage(null);
+            }}
             maxLength={35}
           />
 
@@ -271,13 +277,21 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
             ))}
           </View>
 
+          {/* Error Message Box */}
+          {errorMessage && (
+            <View style={styles.errorBanner}>
+              <AlertCircle size={16} color="#EF4444" style={{ marginRight: 8, marginTop: 1 }} />
+              <Text style={styles.errorBannerText}>{errorMessage}</Text>
+            </View>
+          )}
+
           {/* Submit Button */}
           <Button
             title="Crear Liga"
             onPress={handleCreate}
             loading={loading}
             variant="primary"
-            style={{ marginTop: 24, marginBottom: 8 }}
+            style={{ marginTop: 20, marginBottom: 8 }}
           />
         </ScrollView>
       )}
@@ -365,6 +379,23 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     flex: 1,
     lineHeight: 16,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  errorBannerText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '700',
+    flex: 1,
   },
   input: {
     backgroundColor: COLORS.surfaceElevated,

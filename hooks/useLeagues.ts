@@ -21,23 +21,31 @@ export function useLeagues() {
         return;
       }
 
-      // 1. Fetch leagues from membership
+      // 1. Fetch main LaLiga general league (always available to participants)
+      const { data: mainLeagueData } = await supabase
+        .from('sur_leagues')
+        .select('id')
+        .eq('invite_code', 'LALIGA26')
+        .maybeSingle();
+
+      // 2. Fetch leagues from membership
       const { data: memberLeaguesData } = await supabase
         .from('sur_league_members')
         .select('league_id')
         .eq('user_id', user.id);
 
-      // 2. Fetch leagues from player entries (backward compatibility guarantee)
+      // 3. Fetch leagues from player entries (backward compatibility guarantee)
       const { data: userEntriesData } = await supabase
         .from('sur_entries')
         .select('league_id')
         .eq('player_id', user.id);
 
+      const defaultIds = mainLeagueData ? [mainLeagueData.id] : [];
       const memberIds = (memberLeaguesData || []).map((m) => m.league_id).filter(Boolean);
       const entryIds = (userEntriesData || []).map((e) => e.league_id).filter(Boolean);
 
       // Combine unique league IDs for this user
-      const userLeagueIds = Array.from(new Set([...memberIds, ...entryIds]));
+      const userLeagueIds = Array.from(new Set([...defaultIds, ...memberIds, ...entryIds]));
 
       if (userLeagueIds.length > 0) {
         const { data: leaguesData, error: leaguesError } = await supabase
@@ -70,11 +78,10 @@ export function useLeagues() {
         const loadedLeagues: League[] = (leaguesData || []).filter(Boolean) as any;
         setLeagues(loadedLeagues);
 
-        // Auto-select active league
+        // Auto-select active league: always prioritize LaLiga General if current is not set or not in list
         const currentActive = useAppStore.getState().activeLeague;
         if (loadedLeagues.length > 0) {
           if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
-            // Prefer league with LALIGA26 or first one
             const preferred = loadedLeagues.find((l) => l.invite_code === 'LALIGA26') || loadedLeagues[0];
             setActiveLeague(preferred);
           }

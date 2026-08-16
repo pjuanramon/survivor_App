@@ -10,34 +10,42 @@ export function useDeepLinks() {
   useEffect(() => {
     // Handle URL when app is opened from a link
     function handleUrl(url: string | null) {
-      if (!url) return;
+      try {
+        if (!url) return;
 
-      const parsed = Linking.parse(url);
-      const path = parsed.path;
-      const queryParams = parsed.queryParams;
+        const parsed = Linking.parse(url);
+        const path = parsed.path;
+        const queryParams = parsed.queryParams;
 
-      // Pattern: /join/:code or ?join=code or futvivor://join/ABC123
-      if (path && path.startsWith('join/')) {
-        const inviteCode = path.replace('join/', '').toUpperCase();
-        if (inviteCode) {
-          joinLeagueByCode(inviteCode);
+        // Pattern: /join/:code or ?join=code or futvivor://join/ABC123
+        if (path && path.startsWith('join/')) {
+          const inviteCode = path.replace('join/', '').toUpperCase();
+          if (inviteCode) {
+            joinLeagueByCode(inviteCode);
+          }
+        } else if (queryParams && queryParams.join) {
+          const inviteCode = String(queryParams.join).toUpperCase();
+          if (inviteCode) {
+            joinLeagueByCode(inviteCode);
+          }
         }
-      } else if (queryParams && queryParams.join) {
-        const inviteCode = String(queryParams.join).toUpperCase();
-        if (inviteCode) {
-          joinLeagueByCode(inviteCode);
-        }
+      } catch (e) {
+        console.error('Deep link handling error:', e);
       }
     }
 
-    // Check initial URL
-    Linking.getInitialURL().then(handleUrl);
+    try {
+      // Check initial URL
+      Linking.getInitialURL().then(handleUrl).catch(console.error);
 
-    // Listen to incoming URLs
-    const subscription = Linking.addEventListener('url', (event) => {
-      handleUrl(event.url);
-    });
+      // Listen to incoming URLs
+      const subscription = Linking.addEventListener('url', (event) => {
+        handleUrl(event.url);
+      });
 
-    return () => subscription.remove();
+      return () => subscription?.remove();
+    } catch (e) {
+      console.error('Deep link subscription error:', e);
+    }
   }, []);
 }

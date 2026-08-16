@@ -3,8 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { useFonts, Inter_400Regular, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
-import * as SplashScreen from 'expo-splash-screen';
-
+import { Platform, View } from 'react-native';
 import { useDeepLinks } from '../hooks/useDeepLinks';
 
 SplashScreen.preventAutoHideAsync();

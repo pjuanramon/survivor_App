@@ -93,27 +93,47 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
     }
 
     setLoading(true);
-    const startJornada = getStartingJornada(selectedCompId);
+    try {
+      const startJornada = getStartingJornada(selectedCompId);
 
-    const result = await createLeague({
-      name: leagueName.trim(),
-      competitionId: selectedCompId,
-      avatarEmoji: selectedEmoji,
-    });
-    setLoading(false);
+      const result = await createLeague({
+        name: leagueName.trim(),
+        competitionId: selectedCompId,
+        avatarEmoji: selectedEmoji,
+      });
 
-    if (result.success && result.league) {
-      // Automatically create initial pick for creator
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!result.success || !result.league) {
+        Alert.alert('Error al crear', result.error || 'No se pudo crear la liga. Intenta de nuevo.');
+        return;
+      }
+
+      // Automatically create initial Pick 1 for the creator
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user || (await supabase.auth.getUser()).data?.user;
+
       if (user) {
-        await supabase.from('sur_entries').insert({
-          player_id: user.id,
-          entry_name: 'Pick 1',
-          league_id: result.league.id,
-          is_alive: true,
-          total_points: 0,
-          total_gf: 0,
-        });
+        // Check entry doesn't already exist (idempotent)
+        const { data: existingEntry } = await supabase
+          .from('sur_entries')
+          .select('id')
+          .eq('player_id', user.id)
+          .eq('league_id', result.league.id)
+          .maybeSingle();
+
+        if (!existingEntry) {
+          const { error: entryError } = await supabase.from('sur_entries').insert({
+            player_id: user.id,
+            entry_name: 'Pick 1',
+            league_id: result.league.id,
+            is_alive: true,
+            total_points: 0,
+            total_gf: 0,
+          });
+          if (entryError) {
+            console.error('Entry creation error:', entryError);
+            // Non-fatal: league was created, entry failed — still show success
+          }
+        }
       }
 
       setCreatedLeague({
@@ -123,9 +143,12 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       setActiveLeague({
         ...result.league,
         start_jornada: startJornada,
-      });
-    } else {
-      Alert.alert('Error', result.error || 'No se pudo crear la liga');
+      } as any);
+    } catch (err: any) {
+      console.error('handleCreate error:', err);
+      Alert.alert('Error inesperado', err?.message || 'Algo salió mal. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
   };
 

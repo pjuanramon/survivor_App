@@ -56,13 +56,16 @@ export function useLeagues() {
 
       setLeagues(loadedLeagues);
 
-      // Auto-select active league if not set or if previous is no longer in list
+      // Auto-select active league safely without re-triggering loop
+      const currentActive = useAppStore.getState().activeLeague;
       if (loadedLeagues.length > 0) {
-        if (!activeLeague || !loadedLeagues.find((l) => l.id === activeLeague.id)) {
+        if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
           setActiveLeague(loadedLeagues[0]);
         }
       } else {
-        setActiveLeague(null);
+        if (currentActive !== null) {
+          setActiveLeague(null);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching leagues:', err);
@@ -70,7 +73,7 @@ export function useLeagues() {
     } finally {
       setLoading(false);
     }
-  }, [activeLeague, refreshKey]);
+  }, [refreshKey]);
 
   useEffect(() => {
     fetchLeagues();

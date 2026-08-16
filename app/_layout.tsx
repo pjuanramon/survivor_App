@@ -3,10 +3,16 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { useFonts, Inter_400Regular, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
-import { Platform, View } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { useDeepLinks } from '../hooks/useDeepLinks';
 
-SplashScreen.preventAutoHideAsync();
+// Prevent auto hide on native only
+if (Platform.OS !== 'web') {
+  try {
+    SplashScreen.preventAutoHideAsync().catch(() => {});
+  } catch (e) {}
+}
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -14,15 +20,16 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Initialize universal links & deep links handler
+  // Initialize universal links & deep links handler safely
   useDeepLinks();
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
     Inter_900Black,
   });
 
+  // Inject web reset styles
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'survivor-global-styles';
@@ -61,51 +68,74 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Auth session listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setInitialized(true);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  // Auth routing gatekeeper
   useEffect(() => {
-    if (!initialized || !fontsLoaded) return;
+    if (!initialized) return;
+    if (Platform.OS !== 'web' && !fontsLoaded && !fontError) return;
 
     async function checkAuthAndNavigate() {
-      if (!session) {
-        if (segments.length > 0) {
-          router.replace('/');
-        }
-      } else {
-        const { data: entries } = await supabase
-          .from('sur_entries')
-          .select('id')
-          .eq('player_id', session.user.id);
-
-        const currentRoute = segments.join('/');
-        if (!entries || entries.length === 0) {
-          if (currentRoute !== 'onboarding') {
-            router.replace('/onboarding');
+      try {
+        if (!session) {
+          if (segments.length > 0 && segments[0] !== '(tabs)' && segments[0] !== 'rules' && segments[0] !== 'privacy' && segments[0] !== 'terms') {
+            // Allow public screens or route to auth
+          } else if (segments.length > 0 && segments[0] === '(tabs)') {
+            router.replace('/');
           }
         } else {
-          if (currentRoute === '' || currentRoute === 'onboarding') {
-            router.replace('/(tabs)');
+          const { data: entries } = await supabase
+            .from('sur_entries')
+            .select('id')
+            .eq('player_id', session.user.id);
+
+          const currentRoute = segments.join('/');
+          if (!entries || entries.length === 0) {
+            if (currentRoute !== 'onboarding' && currentRoute !== 'rules') {
+              router.replace('/onboarding');
+            }
+          } else {
+            if (currentRoute === '' || currentRoute === 'onboarding') {
+              router.replace('/(tabs)');
+            }
           }
         }
+      } catch (err) {
+        console.error('Navigation gate error:', err);
+      } finally {
+        if (Platform.OS !== 'web') {
+          try {
+            SplashScreen.hideAsync().catch(() => {});
+          } catch (e) {}
+        }
       }
-      SplashScreen.hideAsync();
     }
 
     checkAuthAndNavigate();
-  }, [session, initialized, segments, fontsLoaded]);
+  }, [session, initialized, segments, fontsLoaded, fontError]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0A0A0A' } }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#0A0A0A' },
+        }}
+      >
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />

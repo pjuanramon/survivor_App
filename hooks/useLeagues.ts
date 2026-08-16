@@ -21,12 +21,11 @@ export function useLeagues() {
         return;
       }
 
-      // 1. Fetch main LaLiga general league (always available to participants)
-      const { data: mainLeagueData } = await supabase
+      // 1. Fetch leagues where user is creator
+      const { data: creatorLeaguesData } = await supabase
         .from('sur_leagues')
         .select('id')
-        .eq('invite_code', 'LALIGA26')
-        .maybeSingle();
+        .eq('creator_id', user.id);
 
       // 2. Fetch leagues from membership
       const { data: memberLeaguesData } = await supabase
@@ -34,18 +33,28 @@ export function useLeagues() {
         .select('league_id')
         .eq('user_id', user.id);
 
-      // 3. Fetch leagues from player entries (backward compatibility guarantee)
+      // 3. Fetch leagues from player entries
       const { data: userEntriesData } = await supabase
         .from('sur_entries')
         .select('league_id')
         .eq('player_id', user.id);
 
-      const defaultIds = mainLeagueData ? [mainLeagueData.id] : [];
+      // 4. Fetch main LaLiga general league fallback
+      const { data: mainLeagueData } = await supabase
+        .from('sur_leagues')
+        .select('id')
+        .eq('invite_code', 'LALIGA26')
+        .maybeSingle();
+
+      const creatorIds = (creatorLeaguesData || []).map((l) => l.id).filter(Boolean);
       const memberIds = (memberLeaguesData || []).map((m) => m.league_id).filter(Boolean);
       const entryIds = (userEntriesData || []).map((e) => e.league_id).filter(Boolean);
+      const defaultIds = mainLeagueData ? [mainLeagueData.id] : [];
 
       // Combine unique league IDs for this user
-      const userLeagueIds = Array.from(new Set([...defaultIds, ...memberIds, ...entryIds]));
+      const userLeagueIds = Array.from(
+        new Set([...creatorIds, ...memberIds, ...entryIds, ...defaultIds])
+      );
 
       if (userLeagueIds.length > 0) {
         const { data: leaguesData, error: leaguesError } = await supabase
@@ -78,11 +87,14 @@ export function useLeagues() {
         const loadedLeagues: League[] = (leaguesData || []).filter(Boolean) as any;
         setLeagues(loadedLeagues);
 
-        // Auto-select active league: always prioritize LaLiga General if current is not set or not in list
+        // Auto-select active league
         const currentActive = useAppStore.getState().activeLeague;
         if (loadedLeagues.length > 0) {
           if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
-            const preferred = loadedLeagues.find((l) => l.invite_code === 'LALIGA26') || loadedLeagues[0];
+            const preferred =
+              loadedLeagues.find((l) => l.creator_id === user.id) ||
+              loadedLeagues.find((l) => l.invite_code === 'LALIGA26') ||
+              loadedLeagues[0];
             setActiveLeague(preferred);
           }
         }

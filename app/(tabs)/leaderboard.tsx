@@ -367,8 +367,7 @@ export default function LeaderboardScreen() {
                           (s) => s.entry_id === entry.id && s.jornada === j
                         );
                         const isCurrentJornada = j === config.current_jornada;
-                        const isHidden =
-                          isCurrentJornada && !isPicksRevealed && !isCurrentUser;
+                        const isHidden = false;
 
                         return (
                           <View

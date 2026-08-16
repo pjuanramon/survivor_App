@@ -210,7 +210,22 @@ export default function DashboardScreen() {
         )}
 
         {/* Picks Cards */}
-        {picks.length === 0 ? (
+        {!activeLeague ? (
+          <View style={styles.emptyCard}>
+            <Trophy size={48} color={COLORS.primary} />
+            <Text style={styles.emptyTitle}>¡Bienvenido a Futvivor!</Text>
+            <Text style={styles.emptySubtitle}>
+              Para empezar a jugar, crea tu propia liga con amigos o únete con un código de invitación.
+            </Text>
+            <TouchableOpacity
+              onPress={() => setCreateModalVisible(true)}
+              style={styles.actionBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionBtnText}>+ Crear Liga</Text>
+            </TouchableOpacity>
+          </View>
+        ) : picks.length === 0 ? (
           <View style={styles.emptyCard}>
             <ShieldAlert size={48} color={COLORS.warning} />
             <Text style={styles.emptyTitle}>Sin picks registrados</Text>

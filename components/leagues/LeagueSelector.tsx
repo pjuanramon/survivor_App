@@ -60,10 +60,6 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
     }
   };
 
-  if (!activeLeague && leagues.length === 0) {
-    return null;
-  }
-
   return (
     <>
       <TouchableOpacity
@@ -73,14 +69,14 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
       >
         <View style={styles.selectorLeft}>
           <Text style={styles.leagueEmoji}>
-            {activeLeague?.avatar_emoji || '⚽'}
+            {activeLeague?.avatar_emoji || '🏆'}
           </Text>
           <View style={styles.leagueTextContainer}>
             <Text style={styles.leagueName} numberOfLines={1}>
-              {activeLeague?.name || 'Seleccionar Liga'}
+              {activeLeague?.name || 'Crear o Unirse a una Liga'}
             </Text>
             <Text style={styles.competitionSub}>
-              {activeLeague?.competition?.name || 'LaLiga 26/27'}
+              {activeLeague?.competition?.name || 'Toca para empezar'}
             </Text>
           </View>
         </View>

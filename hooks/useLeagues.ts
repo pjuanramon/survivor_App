@@ -21,32 +21,7 @@ export function useLeagues() {
         return;
       }
 
-      // 1. Fetch public leagues (Official LaLiga & Liga MX)
-      const { data: publicLeaguesData } = await supabase
-        .from('sur_leagues')
-        .select(`
-          id,
-          name,
-          invite_code,
-          competition_id,
-          creator_id,
-          max_players,
-          is_public,
-          avatar_emoji,
-          created_at,
-          competition:sur_competitions (
-            id,
-            name,
-            short_name,
-            country,
-            season,
-            total_jornadas,
-            is_active
-          )
-        `)
-        .eq('is_public', true);
-
-      // 2. Fetch user private leagues
+      // Fetch ONLY leagues where user is an authorized member
       const { data: memberLeaguesData, error: memberError } = await supabase
         .from('sur_league_members')
         .select(`
@@ -59,6 +34,7 @@ export function useLeagues() {
             max_players,
             is_public,
             avatar_emoji,
+            start_jornada,
             created_at,
             competition:sur_competitions (
               id,
@@ -75,18 +51,10 @@ export function useLeagues() {
 
       if (memberError) throw memberError;
 
-      const memberLeagues: League[] = (memberLeaguesData || [])
+      const loadedLeagues: League[] = (memberLeaguesData || [])
         .map((item: any) => item.league)
         .filter(Boolean);
 
-      const publicLeagues: League[] = (publicLeaguesData || []).filter(Boolean) as any;
-
-      // Merge avoiding duplicates by ID
-      const allMap = new Map<string, League>();
-      publicLeagues.forEach((l) => allMap.set(l.id, l));
-      memberLeagues.forEach((l) => allMap.set(l.id, l));
-
-      const loadedLeagues = Array.from(allMap.values());
       setLeagues(loadedLeagues);
 
       // Auto-select active league safely
@@ -127,18 +95,30 @@ export function useLeagues() {
     name,
     competitionId,
     avatarEmoji = '⚽',
-    isPublic = false,
   }: {
     name: string;
     competitionId: string;
     avatarEmoji?: string;
-    isPublic?: boolean;
   }): Promise<{ success: boolean; league?: League; error?: string }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
       const inviteCode = generateInviteCode();
+
+      // Determine starting jornada: if picks are closed for current jornada, start at next upcoming
+      let startJornada = 1;
+      const { data: compConfig } = await supabase
+        .from('sur_competition_config')
+        .select('*')
+        .eq('competition_id', competitionId)
+        .maybeSingle();
+
+      if (compConfig) {
+        startJornada = compConfig.picks_open
+          ? compConfig.current_jornada
+          : compConfig.current_jornada + 1;
+      }
 
       const { data: newLeague, error: leagueError } = await supabase
         .from('sur_leagues')
@@ -148,7 +128,8 @@ export function useLeagues() {
           competition_id: competitionId,
           creator_id: user.id,
           avatar_emoji: avatarEmoji,
-          is_public: isPublic,
+          is_public: false,
+          start_jornada: startJornada,
         })
         .select(`
           id,
@@ -159,6 +140,7 @@ export function useLeagues() {
           max_players,
           is_public,
           avatar_emoji,
+          start_jornada,
           created_at,
           competition:sur_competitions (
             id,
@@ -213,6 +195,7 @@ export function useLeagues() {
           max_players,
           is_public,
           avatar_emoji,
+          start_jornada,
           created_at,
           competition:sur_competitions (
             id,
@@ -228,7 +211,27 @@ export function useLeagues() {
         .maybeSingle();
 
       if (findError) throw findError;
-      if (!league) throw new Error('Código de liga no encontrado');
+      if (!league) throw new Error('Código de liga no encontrado. Verifica el código e intenta de nuevo.');
+
+      // Check if league has already started and is closed
+      const startJornada = (league as any).start_jornada || 1;
+      const { data: compConfig } = await supabase
+        .from('sur_competition_config')
+        .select('*')
+        .eq('competition_id', league.competition_id)
+        .maybeSingle();
+
+      if (compConfig) {
+        const isStarted =
+          compConfig.current_jornada > startJornada ||
+          (compConfig.current_jornada === startJornada && !compConfig.picks_open);
+
+        if (isStarted) {
+          throw new Error(
+            `🔒 Esta liga ya comenzó en la Jornada ${startJornada} y está cerrada a nuevos participantes. Pídele al creador que abra una liga para la siguiente jornada o crea tú una nueva.`
+          );
+        }
+      }
 
       // Check if already a member
       const { data: existingMember } = await supabase
@@ -238,22 +241,38 @@ export function useLeagues() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (existingMember) {
-        setActiveLeague(league as any);
-        return { success: true, league: league as any };
+      if (!existingMember) {
+        // Add user to league
+        const { error: joinError } = await supabase
+          .from('sur_league_members')
+          .insert({
+            league_id: league.id,
+            user_id: user.id,
+            role: 'player',
+          });
+
+        if (joinError) throw joinError;
+
+        // Auto-create initial pick for new member if none exists
+        const { data: existingEntries } = await supabase
+          .from('sur_entries')
+          .select('id')
+          .eq('player_id', user.id)
+          .eq('league_id', league.id);
+
+        if (!existingEntries || existingEntries.length === 0) {
+          await supabase.from('sur_entries').insert({
+            player_id: user.id,
+            entry_name: 'Pick 1',
+            league_id: league.id,
+            is_alive: true,
+            total_points: 0,
+            total_gf: 0,
+          });
+        }
       }
 
-      // Add user to league
-      const { error: joinError } = await supabase
-        .from('sur_league_members')
-        .insert({
-          league_id: league.id,
-          user_id: user.id,
-          role: 'player',
-        });
-
-      if (joinError) throw joinError;
-
+      setActiveLeague(league as any);
       triggerRefresh();
       return { success: true, league: league as any };
     } catch (err: any) {

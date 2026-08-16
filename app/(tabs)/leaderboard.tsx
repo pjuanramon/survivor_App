@@ -242,10 +242,22 @@ export default function LeaderboardScreen() {
                       )}
                     </View>
                     <View>
-                      <Text style={styles.username}>
+                      <Text
+                        style={[
+                          styles.username,
+                          !entry.is_alive && styles.tdTextDead,
+                        ]}
+                      >
                         {entry.profiles?.username || 'Usuario'}
                       </Text>
-                      <Text style={styles.entryName}>{entry.entry_name}</Text>
+                      <Text
+                        style={[
+                          styles.entryName,
+                          !entry.is_alive && styles.tdTextDead,
+                        ]}
+                      >
+                        {entry.entry_name}
+                      </Text>
                     </View>
                   </View>
 
@@ -258,7 +270,7 @@ export default function LeaderboardScreen() {
                           : styles.statusDead,
                       ]}
                     >
-                      {entry.is_alive ? 'VIVO' : 'RIP'}
+                      {entry.is_alive ? 'VIVO' : 'RIP 💀'}
                     </Text>
                     <Text style={styles.rankNumber}>#{index + 1}</Text>
                   </View>
@@ -282,17 +294,6 @@ export default function LeaderboardScreen() {
         {/* View Mode 2: MATRIX TABLE VIEW */}
         {viewMode === 'matrix' && (
           <View style={styles.matrixContainer}>
-            {/* Secrecy Warning Banner */}
-            {!isPicksRevealed && (
-              <View style={styles.secrecyBanner}>
-                <Lock size={14} color={COLORS.warning} style={{ marginRight: 6 }} />
-                <Text style={styles.secrecyText}>
-                  Modo Secreto activo en la J{config.current_jornada}. Los picks
-                  de tus rivales se revelarán al inicio del primer partido.
-                </Text>
-              </View>
-            )}
-
             <ScrollView horizontal showsHorizontalScrollIndicator={true}>
               <View>
                 {/* Table Header */}
@@ -303,7 +304,7 @@ export default function LeaderboardScreen() {
                   <Text style={[styles.thCell, styles.thGf]}>GF</Text>
                   {matchdayColumns.map((j) => (
                     <Text key={j} style={[styles.thCell, styles.thJornada]}>
-                      J{j}
+                      JORNADA {j}
                     </Text>
                   ))}
                 </View>
@@ -327,6 +328,7 @@ export default function LeaderboardScreen() {
                           style={[
                             styles.tdText,
                             isCurrentUser && styles.currentUserHighlight,
+                            !entry.is_alive && styles.tdTextDead,
                           ]}
                           numberOfLines={1}
                         >
@@ -338,13 +340,19 @@ export default function LeaderboardScreen() {
                             entry.is_alive ? styles.dotAlive : styles.dotDead,
                           ]}
                         >
-                          {entry.is_alive ? '●' : '💀'}
+                          {entry.is_alive ? '●' : '❌'}
                         </Text>
                       </View>
 
                       {/* Entry Name */}
                       <View style={[styles.tdCell, styles.thPickName]}>
-                        <Text style={styles.tdSubText} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.tdSubText,
+                            !entry.is_alive && styles.tdTextDead,
+                          ]}
+                          numberOfLines={1}
+                        >
                           {entry.entry_name}
                         </Text>
                       </View>
@@ -367,7 +375,6 @@ export default function LeaderboardScreen() {
                           (s) => s.entry_id === entry.id && s.jornada === j
                         );
                         const isCurrentJornada = j === config.current_jornada;
-                        const isHidden = false;
 
                         return (
                           <View
@@ -380,11 +387,6 @@ export default function LeaderboardScreen() {
                           >
                             {!sel ? (
                               <Text style={styles.emptyDash}>-</Text>
-                            ) : isHidden ? (
-                              <View style={styles.hiddenPickBadge}>
-                                <Lock size={10} color={COLORS.warning} />
-                                <Text style={styles.hiddenPickText}>Oculto</Text>
-                              </View>
                             ) : (
                               <View
                                 style={[
@@ -392,6 +394,7 @@ export default function LeaderboardScreen() {
                                   isCurrentJornada &&
                                     isCurrentUser &&
                                     styles.userPickBadge,
+                                  !entry.is_alive && styles.teamBadgeDead,
                                 ]}
                               >
                                 <Text
@@ -400,10 +403,10 @@ export default function LeaderboardScreen() {
                                     isCurrentJornada &&
                                       isCurrentUser &&
                                       styles.userPickText,
+                                    !entry.is_alive && styles.teamPickTextDead,
                                   ]}
-                                  numberOfLines={1}
                                 >
-                                  {sel.team?.name || 'Sel'}
+                                  {sel.team?.name || 'Selección'}
                                 </Text>
                               </View>
                             )}
@@ -634,7 +637,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   thJornada: {
-    width: 85,
+    width: 140,
+    minWidth: 140,
     textAlign: 'center',
   },
   tableRow: {
@@ -649,7 +653,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.015)',
   },
   tableRowDead: {
-    opacity: 0.55,
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
   },
   tdCell: {
     justifyContent: 'center',
@@ -663,6 +667,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textPrimary,
     fontWeight: '600',
+  },
+  tdTextDead: {
+    color: '#EF4444',
+    textDecorationLine: 'line-through',
+    textDecorationColor: '#EF4444',
+    opacity: 0.9,
   },
   tdTextBold: {
     fontSize: 13,
@@ -695,35 +705,30 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
   },
-  hiddenPickBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 184, 0, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 184, 0, 0.3)',
-  },
-  hiddenPickText: {
-    color: COLORS.warning,
-    fontSize: 9,
-    fontWeight: '800',
-    marginLeft: 3,
-  },
   teamBadge: {
     backgroundColor: COLORS.surfaceElevated,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
-    maxWidth: 75,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  teamBadgeDead: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   teamPickText: {
     color: COLORS.textPrimary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  teamPickTextDead: {
+    color: '#F87171',
+    textDecorationLine: 'line-through',
+    textDecorationColor: '#EF4444',
   },
   userPickBadge: {
     backgroundColor: COLORS.primaryMuted,

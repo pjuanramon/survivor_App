@@ -24,7 +24,7 @@ interface LeagueSelectorProps {
 export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
   onCreateOrJoinPress,
 }) => {
-  const { leagues, activeLeague, setActiveLeague, joinLeagueByCode } = useLeagues();
+  const { leagues, activeLeague, setActiveLeague, joinLeagueByCode, refetch } = useLeagues();
   const [modalVisible, setModalVisible] = useState(false);
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [inviteInput, setInviteInput] = useState('');
@@ -72,7 +72,10 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
     <>
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => setModalVisible(true)}
+        onPress={() => {
+          refetch();
+          setModalVisible(true);
+        }}
         style={styles.selectorBar}
       >
         <View style={styles.selectorLeft}>

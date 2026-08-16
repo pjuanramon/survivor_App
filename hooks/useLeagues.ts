@@ -18,42 +18,35 @@ export function useLeagues() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setLeagues([]);
+        setActiveLeague(null);
         return;
       }
 
-      // 1. Fetch leagues where user is creator
+      // 1. Fetch leagues where the user is the creator
       const { data: creatorLeaguesData } = await supabase
         .from('sur_leagues')
         .select('id')
         .eq('creator_id', user.id);
 
-      // 2. Fetch leagues from membership
+      // 2. Fetch leagues where the user is a registered member
       const { data: memberLeaguesData } = await supabase
         .from('sur_league_members')
         .select('league_id')
         .eq('user_id', user.id);
 
-      // 3. Fetch leagues from player entries
+      // 3. Fetch leagues where the user has registered entries
       const { data: userEntriesData } = await supabase
         .from('sur_entries')
         .select('league_id')
         .eq('player_id', user.id);
 
-      // 4. Fetch main LaLiga general league fallback
-      const { data: mainLeagueData } = await supabase
-        .from('sur_leagues')
-        .select('id')
-        .eq('invite_code', 'LALIGA26')
-        .maybeSingle();
-
       const creatorIds = (creatorLeaguesData || []).map((l) => l.id).filter(Boolean);
       const memberIds = (memberLeaguesData || []).map((m) => m.league_id).filter(Boolean);
       const entryIds = (userEntriesData || []).map((e) => e.league_id).filter(Boolean);
-      const defaultIds = mainLeagueData ? [mainLeagueData.id] : [];
 
-      // Combine unique league IDs for this user
+      // Combine unique league IDs strictly belonging to this user
       const userLeagueIds = Array.from(
-        new Set([...creatorIds, ...memberIds, ...entryIds, ...defaultIds])
+        new Set([...creatorIds, ...memberIds, ...entryIds])
       );
 
       if (userLeagueIds.length > 0) {
@@ -91,10 +84,9 @@ export function useLeagues() {
         const currentActive = useAppStore.getState().activeLeague;
         if (loadedLeagues.length > 0) {
           if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
+            // Default to the first created league, or first available league
             const preferred =
-              loadedLeagues.find((l) => l.creator_id === user.id) ||
-              loadedLeagues.find((l) => l.invite_code === 'LALIGA26') ||
-              loadedLeagues[0];
+              loadedLeagues.find((l) => l.creator_id === user.id) || loadedLeagues[0];
             setActiveLeague(preferred);
           }
         }
@@ -103,15 +95,24 @@ export function useLeagues() {
         setActiveLeague(null);
       }
     } catch (err: any) {
-      console.error('Error fetching leagues:', err);
+      console.error('Error fetching user leagues:', err);
       setError(err.message || 'Error al cargar ligas');
     } finally {
       setLoading(false);
     }
-  }, [refreshKey]);
+  }, [refreshKey, setActiveLeague]);
 
   useEffect(() => {
     fetchLeagues();
+
+    // Listen to authentication state changes to ensure immediate reactivity
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchLeagues();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [fetchLeagues]);
 
   // Generate 6-char alphanumeric invite code

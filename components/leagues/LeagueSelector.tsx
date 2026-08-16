@@ -117,52 +117,60 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
             </View>
 
             <ScrollView style={styles.leaguesList}>
-              {leagues.map((league) => {
-                const isSelected = activeLeague?.id === league.id;
-                return (
-                  <TouchableOpacity
-                    key={league.id}
-                    activeOpacity={0.7}
-                    onPress={() => handleSelectLeague(league)}
-                    style={[
-                      styles.leagueItem,
-                      isSelected && styles.leagueItemSelected,
-                    ]}
-                  >
-                    <Text style={styles.leagueItemEmoji}>
-                      {league.avatar_emoji || '⚽'}
-                    </Text>
-                    <View style={styles.leagueItemInfo}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text
-                          style={[
-                            styles.leagueItemName,
-                            isSelected && styles.leagueItemNameSelected,
-                          ]}
-                        >
-                          {league.name}
-                        </Text>
-                        {league.creator_id === currentUserId && (
-                          <View style={styles.ownerBadge}>
-                            <Text style={styles.ownerBadgeText}>👑 Tu Liga</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.leagueItemSub}>
-                        Código: {league.invite_code} • {league.competition?.name || 'LaLiga'}
-                      </Text>
-                    </View>
-
+              {leagues.length === 0 ? (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 13, textAlign: 'center' }}>
+                    No tienes ligas activas aún. Crea una o únete con un código.
+                  </Text>
+                </View>
+              ) : (
+                leagues.map((league) => {
+                  const isSelected = activeLeague?.id === league.id;
+                  return (
                     <TouchableOpacity
-                      onPress={() => handleShareLeague(league)}
-                      style={styles.shareIconBtn}
+                      key={league.id}
                       activeOpacity={0.7}
+                      onPress={() => handleSelectLeague(league)}
+                      style={[
+                        styles.leagueItem,
+                        isSelected && styles.leagueItemSelected,
+                      ]}
                     >
-                      <Share2 size={16} color={COLORS.primary} />
+                      <Text style={styles.leagueItemEmoji}>
+                        {league.avatar_emoji || '⚽'}
+                      </Text>
+                      <View style={styles.leagueItemInfo}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text
+                            style={[
+                              styles.leagueItemName,
+                              isSelected && styles.leagueItemNameSelected,
+                            ]}
+                          >
+                            {league.name}
+                          </Text>
+                          {league.creator_id === currentUserId && (
+                            <View style={styles.ownerBadge}>
+                              <Text style={styles.ownerBadgeText}>👑 Tu Liga</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.leagueItemSub}>
+                          Código: {league.invite_code} • {league.competition?.name || 'LaLiga'}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => handleShareLeague(league)}
+                        style={styles.shareIconBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Share2 size={16} color={COLORS.primary} />
+                      </TouchableOpacity>
                     </TouchableOpacity>
-                  </TouchableOpacity>
-                );
-              })}
+                  );
+                })
+              )}
             </ScrollView>
 
             <View style={styles.modalActions}>

@@ -81,6 +81,19 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
     setLoading(false);
 
     if (result.success && result.league) {
+      // Automatically create initial pick for creator
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('sur_entries').insert({
+          player_id: user.id,
+          entry_name: 'Pick 1',
+          league_id: result.league.id,
+          is_alive: true,
+          total_points: 0,
+          total_gf: 0,
+        });
+      }
+
       setCreatedLeague(result.league);
       setActiveLeague(result.league);
     } else {

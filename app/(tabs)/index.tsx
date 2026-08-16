@@ -16,6 +16,7 @@ import { COLORS } from '../../constants/colors';
 import { CountdownTimer } from '../../components/shared/CountdownTimer';
 import { LeagueSelector } from '../../components/leagues/LeagueSelector';
 import { CreateLeagueModal } from '../../components/leagues/CreateLeagueModal';
+import { CreatePicksModal } from '../../components/leagues/CreatePicksModal';
 import { LeagueChatModal } from '../../components/leagues/LeagueChatModal';
 import { ShareCardModal } from '../../components/shared/ShareCard';
 import { useAppStore } from '../../lib/store';
@@ -44,6 +45,7 @@ export default function DashboardScreen() {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [createPicksModalVisible, setCreatePicksModalVisible] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -216,7 +218,7 @@ export default function DashboardScreen() {
               Aún no tienes vidas configuradas para esta liga.
             </Text>
             <TouchableOpacity
-              onPress={() => router.replace('/onboarding')}
+              onPress={() => setCreatePicksModalVisible(true)}
               style={styles.actionBtn}
               activeOpacity={0.8}
             >
@@ -327,6 +329,17 @@ export default function DashboardScreen() {
         <LeagueChatModal
           visible={chatModalVisible}
           onClose={() => setChatModalVisible(false)}
+          leagueId={activeLeague.id}
+          leagueName={activeLeague.name}
+        />
+      )}
+
+      {/* Create Picks Modal for this League */}
+      {activeLeague && (
+        <CreatePicksModal
+          visible={createPicksModalVisible}
+          onClose={() => setCreatePicksModalVisible(false)}
+          onSuccess={fetchDashboardData}
           leagueId={activeLeague.id}
           leagueName={activeLeague.name}
         />

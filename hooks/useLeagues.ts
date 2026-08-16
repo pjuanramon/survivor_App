@@ -1,40 +1,54 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { League, Competition } from '../types/database';
+import { League } from '../types/database';
 import { useAppStore } from '../lib/store';
 
 export function useLeagues() {
-  const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { activeLeague, setActiveLeague, refreshKey, triggerRefresh } = useAppStore();
+  const {
+    leagues,
+    setLeagues,
+    activeLeague,
+    setActiveLeague,
+    refreshKey,
+    triggerRefresh,
+  } = useAppStore();
 
   const fetchLeagues = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1. Get current authenticated user session (instant localStorage read + network verification)
+      const { data: { session } } = await supabase.auth.getSession();
+      let user = session?.user;
+
+      if (!user) {
+        const { data: userData } = await supabase.auth.getUser();
+        user = userData?.user ?? null;
+      }
+
       if (!user) {
         setLeagues([]);
         setActiveLeague(null);
         return;
       }
 
-      // 1. Fetch leagues where the user is the creator
+      // 2. Fetch leagues where the user is creator
       const { data: creatorLeaguesData } = await supabase
         .from('sur_leagues')
         .select('id')
         .eq('creator_id', user.id);
 
-      // 2. Fetch leagues where the user is a registered member
+      // 3. Fetch leagues where the user is a registered member
       const { data: memberLeaguesData } = await supabase
         .from('sur_league_members')
         .select('league_id')
         .eq('user_id', user.id);
 
-      // 3. Fetch leagues where the user has registered entries
+      // 4. Fetch leagues where the user has entries
       const { data: userEntriesData } = await supabase
         .from('sur_entries')
         .select('league_id')
@@ -44,7 +58,7 @@ export function useLeagues() {
       const memberIds = (memberLeaguesData || []).map((m) => m.league_id).filter(Boolean);
       const entryIds = (userEntriesData || []).map((e) => e.league_id).filter(Boolean);
 
-      // Combine unique league IDs strictly belonging to this user
+      // Unique league IDs strictly belonging to this user
       const userLeagueIds = Array.from(
         new Set([...creatorIds, ...memberIds, ...entryIds])
       );
@@ -84,7 +98,6 @@ export function useLeagues() {
         const currentActive = useAppStore.getState().activeLeague;
         if (loadedLeagues.length > 0) {
           if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
-            // Default to the first created league, or first available league
             const preferred =
               loadedLeagues.find((l) => l.creator_id === user.id) || loadedLeagues[0];
             setActiveLeague(preferred);
@@ -100,12 +113,11 @@ export function useLeagues() {
     } finally {
       setLoading(false);
     }
-  }, [refreshKey, setActiveLeague]);
+  }, [refreshKey, setLeagues, setActiveLeague]);
 
   useEffect(() => {
     fetchLeagues();
 
-    // Listen to authentication state changes to ensure immediate reactivity
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       fetchLeagues();
     });
@@ -136,12 +148,12 @@ export function useLeagues() {
     avatarEmoji?: string;
   }): Promise<{ success: boolean; league?: League; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user || (await supabase.auth.getUser()).data?.user;
       if (!user) throw new Error('Usuario no autenticado');
 
       const inviteCode = generateInviteCode();
 
-      // Determine starting jornada: if picks are closed for current jornada, start at next upcoming
       let startJornada = 1;
       const { data: compConfig } = await supabase
         .from('sur_competition_config')
@@ -213,12 +225,12 @@ export function useLeagues() {
     inviteCode: string
   ): Promise<{ success: boolean; league?: League; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user || (await supabase.auth.getUser()).data?.user;
       if (!user) throw new Error('Usuario no autenticado');
 
       const cleanCode = inviteCode.trim().toUpperCase();
 
-      // Find league by code
       const { data: league, error: findError } = await supabase
         .from('sur_leagues')
         .select(`
@@ -277,7 +289,6 @@ export function useLeagues() {
         .maybeSingle();
 
       if (!existingMember) {
-        // Add user to league
         const { error: joinError } = await supabase
           .from('sur_league_members')
           .insert({
@@ -288,7 +299,6 @@ export function useLeagues() {
 
         if (joinError) throw joinError;
 
-        // Auto-create initial pick for new member if none exists
         const { data: existingEntries } = await supabase
           .from('sur_entries')
           .select('id')

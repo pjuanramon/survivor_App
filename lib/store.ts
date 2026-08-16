@@ -7,6 +7,10 @@ interface AppState {
   activeCompetitionShortName: string;
   setActiveCompetitionShortName: (shortName: string) => void;
 
+  // Global list of user leagues
+  leagues: League[];
+  setLeagues: (leagues: League[]) => void;
+
   // Active league
   activeLeague: League | null;
   setActiveLeague: (league: League | null) => void;
@@ -28,6 +32,9 @@ export const useAppStore = create<AppState>((set) => ({
   activeCompetitionShortName: DEFAULT_COMPETITION,
   setActiveCompetitionShortName: (shortName) =>
     set({ activeCompetitionShortName: shortName }),
+
+  leagues: [],
+  setLeagues: (leagues) => set({ leagues }),
 
   activeLeague: null,
   setActiveLeague: (league) => set({ activeLeague: league }),

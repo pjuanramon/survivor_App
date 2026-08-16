@@ -5,7 +5,7 @@ import { Session } from '@supabase/supabase-js';
 import { useFonts, Inter_400Regular, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { Platform, View } from 'react-native';
+import { useDeepLinks } from '../hooks/useDeepLinks';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -14,6 +14,9 @@ export default function RootLayout() {
   const [initialized, setInitialized] = useState(false);
   const segments = useSegments();
   const router = useRouter();
+
+  // Initialize universal links & deep links handler
+  useDeepLinks();
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -108,6 +111,8 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         <Stack.Screen name="rules" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="privacy" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="terms" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </View>
   );

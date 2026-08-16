@@ -10,12 +10,14 @@ import {
   StyleSheet,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { Trophy, Skull, ShieldAlert, ArrowRight, BookOpen, Sparkles } from 'lucide-react-native';
+import { Trophy, Skull, ShieldAlert, ArrowRight, BookOpen, Sparkles, MessageSquare, Share2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { CountdownTimer } from '../../components/shared/CountdownTimer';
 import { LeagueSelector } from '../../components/leagues/LeagueSelector';
 import { CreateLeagueModal } from '../../components/leagues/CreateLeagueModal';
+import { LeagueChatModal } from '../../components/leagues/LeagueChatModal';
+import { ShareCardModal } from '../../components/shared/ShareCard';
 import { useAppStore } from '../../lib/store';
 import { useLeagues } from '../../hooks/useLeagues';
 import { useMatchday } from '../../hooks/useMatchday';
@@ -40,6 +42,8 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -170,6 +174,31 @@ export default function DashboardScreen() {
           onCreateOrJoinPress={() => setCreateModalVisible(true)}
         />
 
+        {/* League Action Bar (Chat & Invite) */}
+        {activeLeague && (
+          <View style={styles.leagueActionBar}>
+            <TouchableOpacity
+              onPress={() => setChatModalVisible(true)}
+              style={styles.actionPill}
+              activeOpacity={0.7}
+            >
+              <MessageSquare size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.actionPillText}>Chat de Liga</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShareModalVisible(true)}
+              style={[styles.actionPill, styles.actionPillHighlight]}
+              activeOpacity={0.7}
+            >
+              <Share2 size={16} color={COLORS.textInverse} style={{ marginRight: 6 }} />
+              <Text style={[styles.actionPillText, { color: COLORS.textInverse }]}>
+                Invitar Amigos
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Live Countdown Timer */}
         {config.picks_deadline && (
           <CountdownTimer
@@ -292,6 +321,30 @@ export default function DashboardScreen() {
         visible={createModalVisible}
         onClose={() => setCreateModalVisible(false)}
       />
+
+      {/* League Chat Modal */}
+      {activeLeague && (
+        <LeagueChatModal
+          visible={chatModalVisible}
+          onClose={() => setChatModalVisible(false)}
+          leagueId={activeLeague.id}
+          leagueName={activeLeague.name}
+        />
+      )}
+
+      {/* Share Card Modal */}
+      {activeLeague && (
+        <ShareCardModal
+          visible={shareModalVisible}
+          onClose={() => setShareModalVisible(false)}
+          data={{
+            type: 'invite',
+            leagueName: activeLeague.name,
+            inviteCode: activeLeague.invite_code,
+            competitionName: activeLeague.competition?.name || 'LaLiga 26/27',
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -345,6 +398,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
     marginLeft: 6,
+  },
+  leagueActionBar: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  actionPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  actionPillHighlight: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  actionPillText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   emptyCard: {
     backgroundColor: COLORS.surface,

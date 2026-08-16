@@ -159,6 +159,38 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={() => router.push('/privacy')}
+            style={styles.menuItem}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuIconCircle}>
+              <Shield size={18} color={COLORS.primary} />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuItemText}>Política de Privacidad</Text>
+              <Text style={styles.menuItemSub}>
+                Protección de datos conforme a RGPD
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/terms')}
+            style={styles.menuItem}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuIconCircle}>
+              <Check size={18} color={COLORS.primary} />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuItemText}>Términos y Condiciones</Text>
+              <Text style={styles.menuItemSub}>
+                Reglas de juego y uso de la plataforma
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={handleSignOut}
             style={styles.menuItem}
             activeOpacity={0.7}

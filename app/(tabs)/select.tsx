@@ -21,6 +21,9 @@ import {
   ArrowRight,
   X,
   Sparkles,
+  Clock,
+  Skull,
+  Check,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../../constants/colors';
@@ -31,6 +34,12 @@ import { useMatchday } from '../../hooks/useMatchday';
 
 interface Match {
   id: string;
+  home_team_id: string;
+  away_team_id: string;
+  home_score?: number | null;
+  away_score?: number | null;
+  status?: string | null;
+  match_date?: string | null;
   home_team: { id: string; name: string };
   away_team: { id: string; name: string };
   is_postponed?: boolean;
@@ -68,10 +77,16 @@ export default function SelectScreen() {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [picksSummary, setPicksSummary] = useState<SummaryItem[]>([]);
 
+  const isDeadlinePassed = config.picks_deadline
+    ? new Date() > new Date(config.picks_deadline)
+    : false;
+  const isPicksOpen = config.picks_open && !isDeadlinePassed;
+
   const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user || (await supabase.auth.getUser()).data?.user;
       if (!user) return;
 
       const activeJornada = config.current_jornada || 1;
@@ -94,11 +109,17 @@ export default function SelectScreen() {
         setSelectedEntry(entriesData[0].id);
       }
 
-      // Fetch matches for active jornada
+      // Fetch matches for active jornada with scores and status
       let matchesQuery = supabase
         .from('sur_matches')
         .select(`
           id,
+          home_team_id,
+          away_team_id,
+          home_score,
+          away_score,
+          status,
+          match_date,
           home_team:sur_teams!home_team_id(id, name),
           away_team:sur_teams!away_team_id(id, name)
         `)
@@ -178,7 +199,8 @@ export default function SelectScreen() {
   }
 
   async function buildSummary() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user || (await supabase.auth.getUser()).data?.user;
     if (!user) return;
 
     const summaryList: SummaryItem[] = await Promise.all(
@@ -225,7 +247,7 @@ export default function SelectScreen() {
   async function handleConfirm() {
     if (!selectedEntry || !selectedTeam) return;
 
-    if (!config.picks_open) {
+    if (!isPicksOpen) {
       Alert.alert('Plazo Cerrado', 'Los picks para esta jornada están cerrados.');
       return;
     }
@@ -318,8 +340,23 @@ export default function SelectScreen() {
         {/* League Selector */}
         <LeagueSelector />
 
-        {/* Countdown */}
-        {config.picks_deadline && (
+        {/* Closed Picks Warning Banner */}
+        {!isPicksOpen && (
+          <View style={styles.closedPicksBanner}>
+            <Lock size={18} color={COLORS.warning} style={{ marginRight: 10, marginTop: 2 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.closedPicksTitle}>
+                Picks Cerrados — Jornada {config.current_jornada}
+              </Text>
+              <Text style={styles.closedPicksSub}>
+                Los partidos ya están en juego o el plazo ha terminado. Los partidos se muestran a modo informativo con resultados en vivo y los equipos perdedores en rojo.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Countdown (only if open) */}
+        {isPicksOpen && config.picks_deadline && (
           <CountdownTimer
             deadline={config.picks_deadline}
             style={{ marginBottom: 16 }}
@@ -360,12 +397,14 @@ export default function SelectScreen() {
         </ScrollView>
 
         {/* Notice */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            📌 Elige al equipo que crees que GANARÁ. No podrás volver a elegirlo en
-            toda la temporada para esta vida.
-          </Text>
-        </View>
+        {isPicksOpen ? (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              📌 Elige al equipo que crees que GANARÁ. No podrás volver a elegirlo en
+              toda la temporada para esta vida.
+            </Text>
+          </View>
+        ) : null}
 
         {/* Matches List */}
         <Text style={styles.sectionTitle}>
@@ -387,12 +426,30 @@ export default function SelectScreen() {
           const isHomeCurrent = currentSelection === match.home_team?.id;
           const isAwayCurrent = currentSelection === match.away_team?.id;
 
+          // Score and Match Result logic
+          const isFinished = match.status === 'FINISHED';
+          const isInPlay = match.status === 'IN_PLAY';
+          const hasScore =
+            match.home_score !== null &&
+            match.home_score !== undefined &&
+            match.away_score !== null &&
+            match.away_score !== undefined;
+
+          const isHomeLosing = hasScore && match.home_score! < match.away_score!;
+          const isAwayLosing = hasScore && match.away_score! < match.home_score!;
+          const isHomeWinning = hasScore && match.home_score! > match.away_score!;
+          const isAwayWinning = hasScore && match.away_score! > match.home_score!;
+          const isDraw = hasScore && match.home_score === match.away_score;
+
+          const isMatchClickable = isPicksOpen && !isPostponed;
+
           return (
             <View
               key={match.id}
               style={[
                 styles.matchCard,
                 isPostponed && styles.matchCardPostponed,
+                !isPicksOpen && styles.matchCardClosed,
               ]}
             >
               {isPostponed && (
@@ -412,74 +469,146 @@ export default function SelectScreen() {
                 {/* Home Team */}
                 <TouchableOpacity
                   onPress={() =>
+                    isMatchClickable &&
                     !isHomeUsed &&
-                    !isPostponed &&
                     setSelectedTeam(match.home_team?.id)
                   }
-                  disabled={isHomeUsed || isPostponed}
+                  disabled={!isMatchClickable || isHomeUsed}
                   style={[
                     styles.teamButton,
-                    isHomeSelected && styles.teamButtonSelected,
+                    isHomeSelected && isPicksOpen && styles.teamButtonSelected,
                     (isHomeUsed || isPostponed) && styles.teamButtonDisabled,
+                    !isPicksOpen && styles.teamButtonGreyed,
+                    isHomeLosing && styles.teamButtonLosing,
+                    isHomeWinning && styles.teamButtonWinning,
+                    isHomeCurrent && styles.teamButtonCurrent,
                   ]}
                   activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.teamButtonText,
-                      isHomeSelected && styles.teamButtonTextSelected,
-                      (isHomeUsed || isPostponed) &&
-                        styles.teamButtonTextDisabled,
+                      isHomeSelected && isPicksOpen && styles.teamButtonTextSelected,
+                      (isHomeUsed || isPostponed) && styles.teamButtonTextDisabled,
+                      !isPicksOpen && styles.teamButtonTextGreyed,
+                      isHomeLosing && styles.teamButtonTextLosing,
+                      isHomeWinning && styles.teamButtonTextWinning,
+                      isHomeCurrent && styles.teamButtonTextCurrent,
                     ]}
                     numberOfLines={1}
                   >
                     {match.home_team?.name}
                   </Text>
-                  <Text style={styles.venueLabel}>Local</Text>
-                  {isHomeUsed && (
+                  <Text style={[styles.venueLabel, isHomeLosing && styles.venueLabelLosing]}>
+                    Local
+                  </Text>
+
+                  {/* Status Badges */}
+                  {isHomeUsed && isPicksOpen && (
                     <Text style={styles.usedBadge}>USADO</Text>
                   )}
                   {isHomeCurrent && (
-                    <Text style={styles.currentBadge}>ELEGIDO</Text>
+                    <View style={styles.currentBadgeBox}>
+                      <Text style={styles.currentBadgeText}>✅ TU PICK</Text>
+                    </View>
+                  )}
+                  {isHomeLosing && (
+                    <View style={styles.losingBadgeBox}>
+                      <Text style={styles.losingBadgeText}>❌ DERROTA</Text>
+                    </View>
+                  )}
+                  {isHomeWinning && (
+                    <View style={styles.winningBadgeBox}>
+                      <Text style={styles.winningBadgeText}>🏆 GANADOR</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
 
-                <View style={styles.vsBadge}>
-                  <Text style={styles.vsText}>VS</Text>
-                </View>
+                {/* Score or VS Badge Center */}
+                {hasScore ? (
+                  <View style={styles.scoreContainer}>
+                    <Text style={styles.scoreText}>
+                      {match.home_score} - {match.away_score}
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        isFinished ? styles.statusBadgeFinished : styles.statusBadgeLive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          isFinished
+                            ? styles.statusBadgeTextFinished
+                            : styles.statusBadgeTextLive,
+                        ]}
+                      >
+                        {isFinished ? 'FINAL' : 'EN VIVO'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.vsBadge}>
+                    <Text style={styles.vsText}>VS</Text>
+                  </View>
+                )}
 
                 {/* Away Team */}
                 <TouchableOpacity
                   onPress={() =>
+                    isMatchClickable &&
                     !isAwayUsed &&
-                    !isPostponed &&
                     setSelectedTeam(match.away_team?.id)
                   }
-                  disabled={isAwayUsed || isPostponed}
+                  disabled={!isMatchClickable || isAwayUsed}
                   style={[
                     styles.teamButton,
-                    isAwaySelected && styles.teamButtonSelected,
+                    isAwaySelected && isPicksOpen && styles.teamButtonSelected,
                     (isAwayUsed || isPostponed) && styles.teamButtonDisabled,
+                    !isPicksOpen && styles.teamButtonGreyed,
+                    isAwayLosing && styles.teamButtonLosing,
+                    isAwayWinning && styles.teamButtonWinning,
+                    isAwayCurrent && styles.teamButtonCurrent,
                   ]}
                   activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.teamButtonText,
-                      isAwaySelected && styles.teamButtonTextSelected,
-                      (isAwayUsed || isPostponed) &&
-                        styles.teamButtonTextDisabled,
+                      isAwaySelected && isPicksOpen && styles.teamButtonTextSelected,
+                      (isAwayUsed || isPostponed) && styles.teamButtonTextDisabled,
+                      !isPicksOpen && styles.teamButtonTextGreyed,
+                      isAwayLosing && styles.teamButtonTextLosing,
+                      isAwayWinning && styles.teamButtonTextWinning,
+                      isAwayCurrent && styles.teamButtonTextCurrent,
                     ]}
                     numberOfLines={1}
                   >
                     {match.away_team?.name}
                   </Text>
-                  <Text style={styles.venueLabel}>Visitante</Text>
-                  {isAwayUsed && (
+                  <Text style={[styles.venueLabel, isAwayLosing && styles.venueLabelLosing]}>
+                    Visitante
+                  </Text>
+
+                  {/* Status Badges */}
+                  {isAwayUsed && isPicksOpen && (
                     <Text style={styles.usedBadge}>USADO</Text>
                   )}
                   {isAwayCurrent && (
-                    <Text style={styles.currentBadge}>ELEGIDO</Text>
+                    <View style={styles.currentBadgeBox}>
+                      <Text style={styles.currentBadgeText}>✅ TU PICK</Text>
+                    </View>
+                  )}
+                  {isAwayLosing && (
+                    <View style={styles.losingBadgeBox}>
+                      <Text style={styles.losingBadgeText}>❌ DERROTA</Text>
+                    </View>
+                  )}
+                  {isAwayWinning && (
+                    <View style={styles.winningBadgeBox}>
+                      <Text style={styles.winningBadgeText}>🏆 GANADOR</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -490,8 +619,8 @@ export default function SelectScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Floating Confirmation Bar */}
-      {selectedTeam && (
+      {/* Floating Confirmation Bar (Only visible when picks are open) */}
+      {isPicksOpen && selectedTeam && (
         <View style={styles.floatingBar}>
           <View style={styles.floatingInfo}>
             <Text style={styles.floatingLabel}>Tu Selección:</Text>
@@ -615,6 +744,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 6,
   },
+  closedPicksBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 184, 0, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.35)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  closedPicksTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.warning,
+    marginBottom: 4,
+  },
+  closedPicksSub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '800',
@@ -668,9 +818,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 14,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
+  },
+  matchCardClosed: {
+    opacity: 0.88,
   },
   matchCardPostponed: {
     borderColor: 'rgba(255, 184, 0, 0.3)',
@@ -694,29 +847,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   teamButton: {
     flex: 1,
     backgroundColor: COLORS.surfaceElevated,
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: COLORS.surfaceBorder,
+    minHeight: 74,
+    justifyContent: 'center',
   },
   teamButtonSelected: {
     backgroundColor: COLORS.primaryMuted,
     borderColor: COLORS.primary,
   },
   teamButtonDisabled: {
-    opacity: 0.4,
+    opacity: 0.45,
     backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  teamButtonGreyed: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  teamButtonCurrent: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(0, 255, 157, 0.12)',
+  },
+  teamButtonLosing: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+  },
+  teamButtonWinning: {
+    backgroundColor: 'rgba(0, 255, 157, 0.08)',
+    borderColor: 'rgba(0, 255, 157, 0.3)',
   },
   teamButtonText: {
     color: COLORS.textPrimary,
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
   },
   teamButtonTextSelected: {
@@ -725,11 +897,30 @@ const styles = StyleSheet.create({
   teamButtonTextDisabled: {
     color: COLORS.textMuted,
   },
+  teamButtonTextGreyed: {
+    color: COLORS.textSecondary,
+  },
+  teamButtonTextCurrent: {
+    color: COLORS.primary,
+    fontWeight: '900',
+  },
+  teamButtonTextLosing: {
+    color: '#EF4444',
+    textDecorationLine: 'line-through',
+    textDecorationColor: '#EF4444',
+  },
+  teamButtonTextWinning: {
+    color: COLORS.primary,
+  },
   venueLabel: {
     fontSize: 10,
     color: COLORS.textMuted,
     marginTop: 2,
     textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  venueLabelLosing: {
+    color: '#F87171',
   },
   usedBadge: {
     position: 'absolute',
@@ -743,20 +934,93 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 4,
   },
-  currentBadge: {
+  currentBadgeBox: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: -8,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  currentBadgeText: {
     fontSize: 9,
     fontWeight: '900',
-    color: COLORS.primary,
-    backgroundColor: COLORS.primaryMuted,
-    paddingHorizontal: 4,
+    color: COLORS.textInverse,
+  },
+  losingBadgeBox: {
+    position: 'absolute',
+    bottom: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  losingBadgeText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#EF4444',
+  },
+  winningBadgeBox: {
+    position: 'absolute',
+    bottom: 4,
+    backgroundColor: 'rgba(0, 255, 157, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 157, 0.3)',
+  },
+  winningBadgeText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
+  scoreContainer: {
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: COLORS.textPrimary,
+    letterSpacing: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  statusBadgeFinished: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  statusBadgeLive: {
+    backgroundColor: 'rgba(0, 255, 157, 0.2)',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  statusBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  statusBadgeTextFinished: {
+    color: COLORS.textMuted,
+  },
+  statusBadgeTextLive: {
+    color: COLORS.primary,
   },
   vsBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vsText: {
     color: COLORS.textMuted,

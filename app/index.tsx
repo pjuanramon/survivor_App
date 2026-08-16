@@ -83,8 +83,8 @@ export default function AuthScreen() {
             <View style={styles.iconBadge}>
               <Trophy size={38} color="#00FF9D" />
             </View>
-            <Text style={styles.title}>SURVIVOR</Text>
-            <Text style={styles.subtitle}>La Liga 26/27 — ¿Quién será el último en pie?</Text>
+            <Text style={styles.title}>FUTVIVOR</Text>
+            <Text style={styles.subtitle}>LaLiga & Liga MX — ¿Quién será el último en pie?</Text>
           </View>
 
           {/* Form Box */}

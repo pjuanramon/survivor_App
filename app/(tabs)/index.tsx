@@ -1,14 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, TouchableOpacity, RefreshControl, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  SafeAreaView,
+  ActivityIndicator,
+  TouchableOpacity,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { Trophy, Skull, ShieldAlert, ArrowRight, BookOpen, Clock } from 'lucide-react-native';
+import { Trophy, Skull, ShieldAlert, ArrowRight, BookOpen, Sparkles } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-
-interface Config {
-  current_jornada: number;
-  picks_open: boolean;
-  picks_deadline?: string;
-}
+import { COLORS } from '../../constants/colors';
+import { CountdownTimer } from '../../components/shared/CountdownTimer';
+import { LeagueSelector } from '../../components/leagues/LeagueSelector';
+import { CreateLeagueModal } from '../../components/leagues/CreateLeagueModal';
+import { useAppStore } from '../../lib/store';
+import { useLeagues } from '../../hooks/useLeagues';
+import { useMatchday } from '../../hooks/useMatchday';
 
 interface PickDetail {
   id: string;
@@ -22,40 +32,35 @@ interface PickDetail {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [config, setConfig] = useState<Config>({ current_jornada: 1, picks_open: true });
+  const { activeLeague } = useAppStore();
+  const { config, refetch: refetchMatchday } = useMatchday(activeLeague?.competition_id);
+  const { refetch: refetchLeagues } = useLeagues();
+
   const [picks, setPicks] = useState<PickDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  async function fetchDashboardData() {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: configData } = await supabase
-        .from('sur_config')
-        .select('*')
-        .eq('id', 1)
-        .maybeSingle();
+      const activeJornada = config.current_jornada || 1;
 
-      const activeJornada = configData?.current_jornada || 1;
-      const defaultDeadline = '2026-08-15T17:30:00.000Z';
-      setConfig({
-        current_jornada: activeJornada,
-        picks_open: configData ? configData.picks_open : true,
-        picks_deadline: configData?.picks_deadline || defaultDeadline,
-      });
-
-      const { data: entriesData } = await supabase
+      // Query entries, filtered by active league if present
+      let entriesQuery = supabase
         .from('sur_entries')
-        .select('id, entry_name, is_alive, total_points, total_gf')
+        .select('id, entry_name, is_alive, total_points, total_gf, league_id')
         .eq('player_id', user.id);
 
-      if (!entriesData || entriesData.length === 0) {
+      if (activeLeague?.id) {
+        entriesQuery = entriesQuery.or(`league_id.eq.${activeLeague.id},league_id.is.null`);
+      }
+
+      const { data: entriesData, error: entriesError } = await entriesQuery;
+
+      if (entriesError || !entriesData || entriesData.length === 0) {
         setPicks([]);
         return;
       }
@@ -103,90 +108,133 @@ export default function DashboardScreen() {
 
       setPicks(picksWithDetails);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching dashboard picks:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [activeLeague, config.current_jornada]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const onRefresh = () => {
     setRefreshing(true);
+    refetchMatchday();
+    refetchLeagues();
     fetchDashboardData();
   };
 
-  if (loading) return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator color="#00FF9D" size="large" />
-    </View>
-  );
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00FF9D" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+          />
+        }
       >
         {/* Top Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.headerTitle}>Mis Picks</Text>
-            <Text style={styles.headerSubtitle}>Jornada {config.current_jornada} Activa</Text>
+            <Text style={styles.headerSubtitle}>
+              Jornada {config.current_jornada} Activa
+            </Text>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/rules')}
             style={styles.rulesPill}
             activeOpacity={0.7}
           >
-            <BookOpen size={16} color="#00FF9D" />
+            <BookOpen size={16} color={COLORS.primary} />
             <Text style={styles.rulesPillText}>Reglas</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Deadline Notice */}
+        {/* League Selector */}
+        <LeagueSelector
+          onCreateOrJoinPress={() => setCreateModalVisible(true)}
+        />
+
+        {/* Live Countdown Timer */}
         {config.picks_deadline && (
-          <View style={styles.noticeBanner}>
-            <Clock size={18} color="#00FF9D" style={{ marginRight: 8 }} />
-            <Text style={styles.noticeText}>
-              Cierre J{config.current_jornada}:{' '}
-              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-                {new Date(config.picks_deadline).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </Text>
-          </View>
+          <CountdownTimer
+            deadline={config.picks_deadline}
+            style={{ marginBottom: 16 }}
+          />
         )}
 
         {/* Picks Cards */}
         {picks.length === 0 ? (
           <View style={styles.emptyCard}>
-            <ShieldAlert size={48} color="#F59E0B" />
+            <ShieldAlert size={48} color={COLORS.warning} />
             <Text style={styles.emptyTitle}>Sin picks registrados</Text>
-            <Text style={styles.emptySubtitle}>Aún no tienes picks configurados para esta temporada.</Text>
-            <TouchableOpacity 
+            <Text style={styles.emptySubtitle}>
+              Aún no tienes vidas configuradas para esta liga.
+            </Text>
+            <TouchableOpacity
               onPress={() => router.replace('/onboarding')}
               style={styles.actionBtn}
+              activeOpacity={0.8}
             >
               <Text style={styles.actionBtnText}>Crear Picks</Text>
             </TouchableOpacity>
           </View>
         ) : (
           picks.map((pick) => (
-            <View 
-              key={pick.id} 
-              style={[styles.pickCard, !pick.is_alive && styles.pickCardDead]}
+            <View
+              key={pick.id}
+              style={[
+                styles.pickCard,
+                !pick.is_alive && styles.pickCardDead,
+              ]}
             >
               {/* Card Header */}
               <View style={styles.cardHeader}>
                 <View style={styles.pickBadgeRow}>
-                  <View style={[styles.statusIconCircle, pick.is_alive ? styles.statusCircleAlive : styles.statusCircleDead]}>
-                    {pick.is_alive ? <Trophy size={16} color="#00FF9D" /> : <Skull size={16} color="#EF4444" />}
+                  <View
+                    style={[
+                      styles.statusIconCircle,
+                      pick.is_alive
+                        ? styles.statusCircleAlive
+                        : styles.statusCircleDead,
+                    ]}
+                  >
+                    {pick.is_alive ? (
+                      <Trophy size={16} color={COLORS.alive} />
+                    ) : (
+                      <Skull size={16} color={COLORS.dead} />
+                    )}
                   </View>
                   <Text style={styles.pickName}>{pick.entry_name}</Text>
                 </View>
 
-                <View style={[styles.statusTag, pick.is_alive ? styles.tagAlive : styles.tagDead]}>
-                  <Text style={[styles.tagText, pick.is_alive ? styles.tagTextAlive : styles.tagTextDead]}>
+                <View
+                  style={[
+                    styles.statusTag,
+                    pick.is_alive ? styles.tagAlive : styles.tagDead,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      pick.is_alive ? styles.tagTextAlive : styles.tagTextDead,
+                    ]}
+                  >
                     {pick.is_alive ? 'VIVO' : 'ELIMINADO'}
                   </Text>
                 </View>
@@ -206,14 +254,15 @@ export default function DashboardScreen() {
                   </View>
                 ) : (
                   <View style={styles.pendingRow}>
-                    <Text style={styles.pendingText}>⚠️ Pendiente de seleccionar</Text>
+                    <Text style={styles.pendingText}>⚠️ Pendiente de elegir</Text>
                     {pick.is_alive && (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => router.push('/(tabs)/select')}
                         style={styles.selectBtn}
+                        activeOpacity={0.7}
                       >
                         <Text style={styles.selectBtnText}>Elegir</Text>
-                        <ArrowRight size={14} color="#00FF9D" />
+                        <ArrowRight size={14} color={COLORS.primary} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -237,6 +286,12 @@ export default function DashboardScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Create League Modal */}
+      <CreateLeagueModal
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -244,190 +299,174 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   scrollContent: {
     padding: 20,
     maxWidth: 600,
-    alignSelf: 'center',
     width: '100%',
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 8,
+    marginBottom: 16,
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '900',
+    color: COLORS.textPrimary,
   },
   headerSubtitle: {
-    color: '#00FF9D',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    color: COLORS.textSecondary,
     marginTop: 2,
+    fontWeight: '500',
   },
   rulesPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161616',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: COLORS.primaryMuted,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#262626',
+    borderColor: 'rgba(0, 255, 157, 0.3)',
   },
   rulesPillText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: COLORS.primary,
     fontWeight: '700',
+    fontSize: 13,
     marginLeft: 6,
   },
-  noticeBanner: {
-    backgroundColor: '#161616',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#262626',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  noticeText: {
-    color: '#888888',
-    fontSize: 13,
-  },
   emptyCard: {
-    backgroundColor: '#161616',
-    padding: 32,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#262626',
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 30,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    marginTop: 20,
   },
   emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
+    color: COLORS.textPrimary,
     marginTop: 16,
+    marginBottom: 8,
   },
   emptySubtitle: {
-    color: '#888888',
     fontSize: 14,
+    color: COLORS.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  actionBtn: {
-    backgroundColor: '#00FF9D',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  actionBtnText: {
-    color: '#000000',
-    fontWeight: '900',
-    fontSize: 15,
-  },
-  pickCard: {
-    backgroundColor: '#161616',
-    padding: 22,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#262626',
     marginBottom: 20,
   },
+  actionBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  actionBtnText: {
+    color: COLORS.textInverse,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  pickCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+  },
   pickCardDead: {
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    opacity: 0.7,
+    borderColor: 'rgba(255, 77, 77, 0.3)',
+    backgroundColor: 'rgba(255, 77, 77, 0.03)',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   pickBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statusIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 10,
   },
   statusCircleAlive: {
-    backgroundColor: 'rgba(0, 255, 157, 0.15)',
+    backgroundColor: COLORS.aliveBg,
   },
   statusCircleDead: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: COLORS.deadBg,
   },
   pickName: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   statusTag: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    borderWidth: 1,
   },
   tagAlive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: COLORS.aliveBg,
   },
   tagDead: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    backgroundColor: COLORS.deadBg,
   },
   tagText: {
     fontSize: 11,
     fontWeight: '900',
+    letterSpacing: 0.5,
   },
   tagTextAlive: {
-    color: '#34D399',
+    color: COLORS.alive,
   },
   tagTextDead: {
-    color: '#F87171',
+    color: COLORS.dead,
   },
   selectionBox: {
-    backgroundColor: '#0F0F0F',
-    padding: 16,
-    borderRadius: 16,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#222222',
-    marginBottom: 16,
+    borderColor: COLORS.surfaceBorder,
   },
   selectionLabel: {
-    color: '#888888',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textMuted,
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
   teamName: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   matchVs: {
-    color: '#00FF9D',
     fontSize: 13,
-    fontWeight: '700',
+    color: COLORS.textSecondary,
     marginTop: 2,
+    fontWeight: '500',
   },
   pendingRow: {
     flexDirection: 'row',
@@ -435,24 +474,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pendingText: {
-    color: '#FBBF24',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    color: COLORS.warning,
+    fontWeight: '600',
   },
   selectBtn: {
-    backgroundColor: 'rgba(0, 255, 157, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 157, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.primaryMuted,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 157, 0.3)',
   },
   selectBtnText: {
-    color: '#00FF9D',
+    color: COLORS.primary,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     marginRight: 4,
   },
   statsRow: {
@@ -461,22 +500,21 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
-    padding: 12,
-    borderRadius: 14,
-    alignItems: 'center',
+    backgroundColor: COLORS.surfaceElevated,
+    padding: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: COLORS.surfaceBorder,
   },
   statLabel: {
-    color: '#888888',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: COLORS.textMuted,
     marginBottom: 2,
   },
   statValue: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
 });

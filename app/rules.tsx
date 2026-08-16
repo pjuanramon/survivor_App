@@ -28,7 +28,7 @@ export default function RulesScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Reglamento Oficial</Text>
-            <Text style={styles.subtitle}>Survivor Football La Liga 26/27</Text>
+            <Text style={styles.subtitle}>Futvivor • LaLiga & Liga MX 26/27</Text>
           </View>
         </View>
 

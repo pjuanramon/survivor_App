@@ -48,14 +48,36 @@ export default function OnboardingScreen() {
         username: user.email?.split('@')[0] || 'User' 
       });
 
+      // Find default public league
+      const { data: defaultLeague } = await supabase
+        .from('sur_leagues')
+        .select('id')
+        .eq('is_public', true)
+        .limit(1)
+        .maybeSingle();
+
+      const leagueId = defaultLeague?.id || null;
+
       const entries = Array.from({ length: pickCount }).map((_, i) => ({
         player_id: user.id,
         entry_name: `Pick ${i + 1}`,
+        league_id: leagueId,
       }));
 
       const { error } = await supabase.from('sur_entries').insert(entries);
-
       if (error) throw error;
+
+      // Enroll in league members if default league exists
+      if (leagueId) {
+        await supabase
+          .from('sur_league_members')
+          .insert({
+            league_id: leagueId,
+            user_id: user.id,
+            role: 'player',
+          })
+          .maybeSingle();
+      }
 
       router.replace('/(tabs)');
     } catch (error: any) {

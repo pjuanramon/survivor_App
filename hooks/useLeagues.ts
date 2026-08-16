@@ -21,8 +21,33 @@ export function useLeagues() {
         return;
       }
 
-      // Fetch leagues where user is a member
-      const { data: memberLeagues, error: memberError } = await supabase
+      // 1. Fetch public leagues (Official LaLiga & Liga MX)
+      const { data: publicLeaguesData } = await supabase
+        .from('sur_leagues')
+        .select(`
+          id,
+          name,
+          invite_code,
+          competition_id,
+          creator_id,
+          max_players,
+          is_public,
+          avatar_emoji,
+          created_at,
+          competition:sur_competitions (
+            id,
+            name,
+            short_name,
+            country,
+            season,
+            total_jornadas,
+            is_active
+          )
+        `)
+        .eq('is_public', true);
+
+      // 2. Fetch user private leagues
+      const { data: memberLeaguesData, error: memberError } = await supabase
         .from('sur_league_members')
         .select(`
           league:sur_leagues (
@@ -50,13 +75,21 @@ export function useLeagues() {
 
       if (memberError) throw memberError;
 
-      const loadedLeagues: League[] = (memberLeagues || [])
+      const memberLeagues: League[] = (memberLeaguesData || [])
         .map((item: any) => item.league)
         .filter(Boolean);
 
+      const publicLeagues: League[] = (publicLeaguesData || []).filter(Boolean) as any;
+
+      // Merge avoiding duplicates by ID
+      const allMap = new Map<string, League>();
+      publicLeagues.forEach((l) => allMap.set(l.id, l));
+      memberLeagues.forEach((l) => allMap.set(l.id, l));
+
+      const loadedLeagues = Array.from(allMap.values());
       setLeagues(loadedLeagues);
 
-      // Auto-select active league safely without re-triggering loop
+      // Auto-select active league safely
       const currentActive = useAppStore.getState().activeLeague;
       if (loadedLeagues.length > 0) {
         if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
@@ -117,13 +150,32 @@ export function useLeagues() {
           avatar_emoji: avatarEmoji,
           is_public: isPublic,
         })
-        .select()
+        .select(`
+          id,
+          name,
+          invite_code,
+          competition_id,
+          creator_id,
+          max_players,
+          is_public,
+          avatar_emoji,
+          created_at,
+          competition:sur_competitions (
+            id,
+            name,
+            short_name,
+            country,
+            season,
+            total_jornadas,
+            is_active
+          )
+        `)
         .single();
 
       if (leagueError) throw leagueError;
 
       // Add creator as admin in league_members
-      const { error: memberError } = await supabase
+      await supabase
         .from('sur_league_members')
         .insert({
           league_id: newLeague.id,
@@ -131,10 +183,8 @@ export function useLeagues() {
           role: 'admin',
         });
 
-      if (memberError) throw memberError;
-
       triggerRefresh();
-      return { success: true, league: newLeague };
+      return { success: true, league: newLeague as any };
     } catch (err: any) {
       console.error('Error creating league:', err);
       return { success: false, error: err.message || 'Error al crear la liga' };
@@ -154,7 +204,26 @@ export function useLeagues() {
       // Find league by code
       const { data: league, error: findError } = await supabase
         .from('sur_leagues')
-        .select('*')
+        .select(`
+          id,
+          name,
+          invite_code,
+          competition_id,
+          creator_id,
+          max_players,
+          is_public,
+          avatar_emoji,
+          created_at,
+          competition:sur_competitions (
+            id,
+            name,
+            short_name,
+            country,
+            season,
+            total_jornadas,
+            is_active
+          )
+        `)
         .eq('invite_code', cleanCode)
         .maybeSingle();
 
@@ -170,8 +239,8 @@ export function useLeagues() {
         .maybeSingle();
 
       if (existingMember) {
-        setActiveLeague(league);
-        return { success: true, league };
+        setActiveLeague(league as any);
+        return { success: true, league: league as any };
       }
 
       // Add user to league
@@ -186,7 +255,7 @@ export function useLeagues() {
       if (joinError) throw joinError;
 
       triggerRefresh();
-      return { success: true, league };
+      return { success: true, league: league as any };
     } catch (err: any) {
       console.error('Error joining league:', err);
       return { success: false, error: err.message || 'Error al unirse a la liga' };

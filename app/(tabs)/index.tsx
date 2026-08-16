@@ -96,8 +96,8 @@ export default function DashboardScreen() {
               .maybeSingle();
 
             if (matchData) {
-              const home = (matchData as any).home_team.name;
-              const away = (matchData as any).away_team.name;
+              const home = (matchData as any).home_team?.name || 'Equipo';
+              const away = (matchData as any).away_team?.name || 'Rival';
               matchVs = home === teamName ? `vs ${away} (Local)` : `@ ${home} (Visitante)`;
             }
           }

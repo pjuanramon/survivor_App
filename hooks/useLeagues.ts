@@ -21,11 +21,28 @@ export function useLeagues() {
         return;
       }
 
-      // Fetch ONLY leagues where user is an authorized member
-      const { data: memberLeaguesData, error: memberError } = await supabase
+      // 1. Fetch leagues from membership
+      const { data: memberLeaguesData } = await supabase
         .from('sur_league_members')
-        .select(`
-          league:sur_leagues (
+        .select('league_id')
+        .eq('user_id', user.id);
+
+      // 2. Fetch leagues from player entries (backward compatibility guarantee)
+      const { data: userEntriesData } = await supabase
+        .from('sur_entries')
+        .select('league_id')
+        .eq('player_id', user.id);
+
+      const memberIds = (memberLeaguesData || []).map((m) => m.league_id).filter(Boolean);
+      const entryIds = (userEntriesData || []).map((e) => e.league_id).filter(Boolean);
+
+      // Combine unique league IDs for this user
+      const userLeagueIds = Array.from(new Set([...memberIds, ...entryIds]));
+
+      if (userLeagueIds.length > 0) {
+        const { data: leaguesData, error: leaguesError } = await supabase
+          .from('sur_leagues')
+          .select(`
             id,
             name,
             invite_code,
@@ -45,28 +62,26 @@ export function useLeagues() {
               total_jornadas,
               is_active
             )
-          )
-        `)
-        .eq('user_id', user.id);
+          `)
+          .in('id', userLeagueIds);
 
-      if (memberError) throw memberError;
+        if (leaguesError) throw leaguesError;
 
-      const loadedLeagues: League[] = (memberLeaguesData || [])
-        .map((item: any) => item.league)
-        .filter(Boolean);
+        const loadedLeagues: League[] = (leaguesData || []).filter(Boolean) as any;
+        setLeagues(loadedLeagues);
 
-      setLeagues(loadedLeagues);
-
-      // Auto-select active league safely
-      const currentActive = useAppStore.getState().activeLeague;
-      if (loadedLeagues.length > 0) {
-        if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
-          setActiveLeague(loadedLeagues[0]);
+        // Auto-select active league
+        const currentActive = useAppStore.getState().activeLeague;
+        if (loadedLeagues.length > 0) {
+          if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
+            // Prefer league with LALIGA26 or first one
+            const preferred = loadedLeagues.find((l) => l.invite_code === 'LALIGA26') || loadedLeagues[0];
+            setActiveLeague(preferred);
+          }
         }
       } else {
-        if (currentActive !== null) {
-          setActiveLeague(null);
-        }
+        setLeagues([]);
+        setActiveLeague(null);
       }
     } catch (err: any) {
       console.error('Error fetching leagues:', err);

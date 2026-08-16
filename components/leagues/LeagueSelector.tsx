@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { COLORS } from '../../constants/colors';
 import { useLeagues } from '../../hooks/useLeagues';
 import { League } from '../../types/database';
 import { COMPETITIONS } from '../../constants/competitions';
+import { supabase } from '../../lib/supabase';
 
 interface LeagueSelectorProps {
   onCreateOrJoinPress?: () => void;
@@ -29,6 +30,13 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
   const [inviteInput, setInviteInput] = useState('');
   const [joining, setJoining] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
 
   const handleSelectLeague = (league: League) => {
     setActiveLeague(league);
@@ -122,14 +130,21 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
                       {league.avatar_emoji || '⚽'}
                     </Text>
                     <View style={styles.leagueItemInfo}>
-                      <Text
-                        style={[
-                          styles.leagueItemName,
-                          isSelected && styles.leagueItemNameSelected,
-                        ]}
-                      >
-                        {league.name}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text
+                          style={[
+                            styles.leagueItemName,
+                            isSelected && styles.leagueItemNameSelected,
+                          ]}
+                        >
+                          {league.name}
+                        </Text>
+                        {league.creator_id === currentUserId && (
+                          <View style={styles.ownerBadge}>
+                            <Text style={styles.ownerBadgeText}>👑 Tu Liga</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.leagueItemSub}>
                         Código: {league.invite_code} • {league.competition?.name || 'LaLiga'}
                       </Text>
@@ -399,5 +414,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 3,
     marginBottom: 20,
+  },
+  ownerBadge: {
+    backgroundColor: 'rgba(0, 255, 157, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 157, 0.3)',
+  },
+  ownerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
 });

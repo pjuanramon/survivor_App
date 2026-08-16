@@ -112,8 +112,8 @@ export default function LeaderboardScreen() {
 
   const isDeadlinePassed = config.picks_deadline
     ? new Date() > new Date(config.picks_deadline)
-    : false;
-  const isPicksRevealed = !config.picks_open || isDeadlinePassed;
+    : true;
+  const isPicksRevealed = true; // Picks are open & revealed for live match tracking
 
   // Generate matchdays list for table columns
   const matchdayColumns = Array.from(

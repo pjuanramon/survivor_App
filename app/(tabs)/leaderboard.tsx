@@ -219,7 +219,12 @@ export default function LeaderboardScreen() {
             </View>
 
             {/* Table */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              contentContainerStyle={styles.matrixScrollContent}
+            >
               <View>
                 {/* Table Header Row */}
                 <View style={styles.tableHeaderRow}>
@@ -244,10 +249,20 @@ export default function LeaderboardScreen() {
                       <View key={entry.id} style={[styles.tableBodyRow, !entry.is_alive && styles.tableRowDead]}>
                         {/* User / Pick Cell */}
                         <View style={[styles.tableCell, styles.cellUserWidth, styles.cellUserFlex]}>
-                          <Text style={styles.cellUsername} numberOfLines={1}>
-                            {entry.profiles?.username || 'Usuario'}
+                          <View style={styles.userRowFlex}>
+                            {!entry.is_alive && (
+                              <Skull size={13} color="#EF4444" style={{ marginRight: 4 }} />
+                            )}
+                            <Text 
+                              style={[styles.cellUsername, !entry.is_alive && styles.cellUsernameDead]} 
+                              numberOfLines={1}
+                            >
+                              {entry.profiles?.username || 'Usuario'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.cellEntryName, !entry.is_alive && styles.cellEntryNameDead]}>
+                            {entry.entry_name} {!entry.is_alive && '• RIP'}
                           </Text>
-                          <Text style={styles.cellEntryName}>{entry.entry_name}</Text>
                         </View>
 
                         {/* Matchday Choice Cells */}
@@ -261,8 +276,13 @@ export default function LeaderboardScreen() {
                             <View key={j} style={[styles.tableCell, styles.cellJornadaWidth]}>
                               {teamName ? (
                                 canViewCell ? (
-                                  <View style={styles.teamPill}>
-                                    <Text style={styles.teamPillText} numberOfLines={1}>{teamName}</Text>
+                                  <View style={[styles.teamPill, !entry.is_alive && styles.teamPillDead]}>
+                                    <Text 
+                                      style={[styles.teamPillText, !entry.is_alive && styles.teamPillTextDead]} 
+                                      numberOfLines={1}
+                                    >
+                                      {teamName}
+                                    </Text>
                                     {isCurrentJornada && isOwner && !isPicksRevealed && (
                                       <Text style={styles.yourPickSub}>TU PICK</Text>
                                     )}
@@ -459,6 +479,10 @@ const styles = StyleSheet.create({
   matrixContainer: {
     marginTop: 4,
   },
+  matrixScrollContent: {
+    paddingRight: 32,
+    minWidth: '100%',
+  },
   matrixNotice: {
     padding: 14,
     borderRadius: 16,
@@ -511,7 +535,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tableRowDead: {
-    opacity: 0.5,
+    backgroundColor: '#181112',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   tableCell: {
     justifyContent: 'center',
@@ -519,12 +544,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cellUserWidth: {
-    width: 150,
+    width: 155,
     alignItems: 'flex-start',
     paddingLeft: 8,
   },
   cellUserFlex: {
     justifyContent: 'center',
+  },
+  userRowFlex: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cellJornadaWidth: {
     width: 130,
@@ -534,9 +563,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
+  cellUsernameDead: {
+    color: '#EF4444',
+    textDecorationLine: 'line-through',
+    fontWeight: '800',
+  },
   cellEntryName: {
     color: '#888888',
     fontSize: 11,
+  },
+  cellEntryNameDead: {
+    color: '#F87171',
+    textDecorationLine: 'line-through',
   },
   teamPill: {
     backgroundColor: '#1F1F1F',
@@ -548,10 +586,18 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
+  teamPillDead: {
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
   teamPillText: {
     color: '#00FF9D',
     fontSize: 12,
     fontWeight: '800',
+  },
+  teamPillTextDead: {
+    color: '#F87171',
+    textDecorationLine: 'line-through',
   },
   yourPickSub: {
     color: '#FFFFFF',

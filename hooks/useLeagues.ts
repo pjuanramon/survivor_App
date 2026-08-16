@@ -21,7 +21,7 @@ export function useLeagues() {
       setLoading(true);
       setError(null);
 
-      // 1. Get current authenticated user session (instant localStorage read + network verification)
+      // 1. Get current authenticated user session
       const { data: { session } } = await supabase.auth.getSession();
       let user = session?.user;
 
@@ -75,7 +75,6 @@ export function useLeagues() {
             max_players,
             is_public,
             avatar_emoji,
-            start_jornada,
             created_at,
             competition:sur_competitions (
               id,
@@ -89,7 +88,10 @@ export function useLeagues() {
           `)
           .in('id', userLeagueIds);
 
-        if (leaguesError) throw leaguesError;
+        if (leaguesError) {
+          console.error('Supabase sur_leagues select error:', leaguesError);
+          throw leaguesError;
+        }
 
         const loadedLeagues: League[] = (leaguesData || []).filter(Boolean) as any;
         setLeagues(loadedLeagues);
@@ -154,19 +156,6 @@ export function useLeagues() {
 
       const inviteCode = generateInviteCode();
 
-      let startJornada = 1;
-      const { data: compConfig } = await supabase
-        .from('sur_competition_config')
-        .select('*')
-        .eq('competition_id', competitionId)
-        .maybeSingle();
-
-      if (compConfig) {
-        startJornada = compConfig.picks_open
-          ? compConfig.current_jornada
-          : compConfig.current_jornada + 1;
-      }
-
       const { data: newLeague, error: leagueError } = await supabase
         .from('sur_leagues')
         .insert({
@@ -176,7 +165,6 @@ export function useLeagues() {
           creator_id: user.id,
           avatar_emoji: avatarEmoji,
           is_public: false,
-          start_jornada: startJornada,
         })
         .select(`
           id,
@@ -187,7 +175,6 @@ export function useLeagues() {
           max_players,
           is_public,
           avatar_emoji,
-          start_jornada,
           created_at,
           competition:sur_competitions (
             id,
@@ -242,7 +229,6 @@ export function useLeagues() {
           max_players,
           is_public,
           avatar_emoji,
-          start_jornada,
           created_at,
           competition:sur_competitions (
             id,
@@ -259,26 +245,6 @@ export function useLeagues() {
 
       if (findError) throw findError;
       if (!league) throw new Error('Código de liga no encontrado. Verifica el código e intenta de nuevo.');
-
-      // Check if league has already started and is closed
-      const startJornada = (league as any).start_jornada || 1;
-      const { data: compConfig } = await supabase
-        .from('sur_competition_config')
-        .select('*')
-        .eq('competition_id', league.competition_id)
-        .maybeSingle();
-
-      if (compConfig) {
-        const isStarted =
-          compConfig.current_jornada > startJornada ||
-          (compConfig.current_jornada === startJornada && !compConfig.picks_open);
-
-        if (isStarted) {
-          throw new Error(
-            `🔒 Esta liga ya comenzó en la Jornada ${startJornada} y está cerrada a nuevos participantes. Pídele al creador que abra una liga para la siguiente jornada o crea tú una nueva.`
-          );
-        }
-      }
 
       // Check if already a member
       const { data: existingMember } = await supabase

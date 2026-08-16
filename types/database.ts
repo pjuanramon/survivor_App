@@ -68,6 +68,7 @@ export interface League {
   is_public: boolean;
   avatar_emoji: string;
   created_at: string;
+  start_jornada?: number;
   competition?: Competition;
   creator_profile?: Profile;
   members_count?: number;

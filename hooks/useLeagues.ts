@@ -21,7 +21,7 @@ export function useLeagues() {
       setLoading(true);
       setError(null);
 
-      // 1. Get current authenticated user session
+      // 1. Get authenticated user
       const { data: { session } } = await supabase.auth.getSession();
       let user = session?.user;
 
@@ -36,29 +36,17 @@ export function useLeagues() {
         return;
       }
 
-      // 2. Fetch leagues where the user is creator
-      const { data: creatorLeaguesData } = await supabase
-        .from('sur_leagues')
-        .select('id')
-        .eq('creator_id', user.id);
+      // 2. Fetch leagues where user is creator, member, or has entries (run in parallel)
+      const [creatorRes, memberRes, entryRes] = await Promise.all([
+        supabase.from('sur_leagues').select('id').eq('creator_id', user.id),
+        supabase.from('sur_league_members').select('league_id').eq('user_id', user.id),
+        supabase.from('sur_entries').select('league_id').eq('player_id', user.id),
+      ]);
 
-      // 3. Fetch leagues where the user is a registered member
-      const { data: memberLeaguesData } = await supabase
-        .from('sur_league_members')
-        .select('league_id')
-        .eq('user_id', user.id);
+      const creatorIds = (creatorRes.data || []).map((l) => l.id).filter(Boolean);
+      const memberIds = (memberRes.data || []).map((m) => m.league_id).filter(Boolean);
+      const entryIds = (entryRes.data || []).map((e) => e.league_id).filter(Boolean);
 
-      // 4. Fetch leagues where the user has entries
-      const { data: userEntriesData } = await supabase
-        .from('sur_entries')
-        .select('league_id')
-        .eq('player_id', user.id);
-
-      const creatorIds = (creatorLeaguesData || []).map((l) => l.id).filter(Boolean);
-      const memberIds = (memberLeaguesData || []).map((m) => m.league_id).filter(Boolean);
-      const entryIds = (userEntriesData || []).map((e) => e.league_id).filter(Boolean);
-
-      // Unique league IDs strictly belonging to this user
       const userLeagueIds = Array.from(
         new Set([...creatorIds, ...memberIds, ...entryIds])
       );
@@ -88,10 +76,7 @@ export function useLeagues() {
           `)
           .in('id', userLeagueIds);
 
-        if (leaguesError) {
-          console.error('Supabase sur_leagues select error:', leaguesError);
-          throw leaguesError;
-        }
+        if (leaguesError) throw leaguesError;
 
         const loadedLeagues: League[] = (leaguesData || []).filter(Boolean) as any;
         setLeagues(loadedLeagues);
@@ -101,7 +86,7 @@ export function useLeagues() {
         if (loadedLeagues.length > 0) {
           if (!currentActive || !loadedLeagues.find((l) => l.id === currentActive.id)) {
             const preferred =
-              loadedLeagues.find((l) => l.creator_id === user.id) || loadedLeagues[0];
+              loadedLeagues.find((l) => l.creator_id === user?.id) || loadedLeagues[0];
             setActiveLeague(preferred);
           }
         }
@@ -120,8 +105,10 @@ export function useLeagues() {
   useEffect(() => {
     fetchLeagues();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchLeagues();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchLeagues();
+      }
     });
 
     return () => {

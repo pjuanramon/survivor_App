@@ -36,25 +36,6 @@ export default function ProfileScreen() {
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [referralCode, setReferralCode] = useState<string>('');
-
-  useEffect(() => {
-    if (user?.id) {
-      // Generate or retrieve referral code
-      const code = user.id.slice(0, 6).toUpperCase();
-      setReferralCode(code);
-    }
-  }, [user]);
-
-  async function handleShareReferral() {
-    try {
-      await Share.share({
-        message: `⚽ ¡Juega conmigo en Futvivor! La app definitiva de Survivor de fútbol (LaLiga + Liga MX). Usa mi código de invitado: ${referralCode}\n\n🏆 ¿Podrás sobrevivir todas las jornadas?`,
-      });
-    } catch (err) {
-      console.error('Error sharing referral:', err);
-    }
-  }
 
   async function handleSignOut() {
     Alert.alert('Cerrar Sesión', '¿Estás seguro de que deseas salir?', [
@@ -116,29 +97,6 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-
-        {/* Referral Card (Viral Growth) */}
-        <Card variant="highlight" style={styles.referralCard}>
-          <View style={styles.referralHeader}>
-            <Gift size={22} color={COLORS.primary} />
-            <Text style={styles.referralTitle}>Invita Amigos & Gana Vidas</Text>
-          </View>
-          <Text style={styles.referralSub}>
-            Comparte tu código con amigos. Cuando se unan, ambos desbloquean
-            insignias exclusivas y ventajas para la temporada.
-          </Text>
-
-          <View style={styles.referralCodeBox}>
-            <Text style={styles.referralCodeText}>{referralCode}</Text>
-          </View>
-
-          <Button
-            title="Compartir Código"
-            onPress={handleShareReferral}
-            variant="primary"
-            icon={<Share2 size={16} color={COLORS.textInverse} />}
-          />
-        </Card>
 
         {/* Menu Items */}
         <View style={styles.menuGroup}>

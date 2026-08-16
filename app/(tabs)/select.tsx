@@ -27,7 +27,6 @@ import {
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../../constants/colors';
-import { CountdownTimer } from '../../components/shared/CountdownTimer';
 import { LeagueSelector } from '../../components/leagues/LeagueSelector';
 import { useAppStore } from '../../lib/store';
 import { useMatchday } from '../../hooks/useMatchday';
@@ -125,19 +124,37 @@ export default function SelectScreen() {
         .eq('jornada', targetJornada);
 
       if (activeLeague?.competition_id) {
-        matchesQuery = matchesQuery.or(
-          `competition_id.eq.${activeLeague.competition_id},competition_id.is.null`
-        );
+        matchesQuery = matchesQuery.eq('competition_id', activeLeague.competition_id);
       }
 
-      const { data: matchesData } = await matchesQuery;
+      let { data: matchesData } = await matchesQuery;
+
+      // Fallback: If no matches returned for specific comp_id, fetch by jornada
+      if (!matchesData || matchesData.length === 0) {
+        const { data: fallbackData } = await supabase
+          .from('sur_matches')
+          .select(`
+            id,
+            home_team_id,
+            away_team_id,
+            home_score,
+            away_score,
+            status,
+            match_date,
+            home_team:sur_teams!home_team_id(id, name),
+            away_team:sur_teams!away_team_id(id, name)
+          `)
+          .eq('jornada', targetJornada);
+        matchesData = fallbackData;
+      }
+
       setMatches((matchesData as any) || []);
     } catch (error) {
       console.error('Error fetching selection data:', error);
     } finally {
       setLoading(false);
     }
-  }, [activeLeague, targetJornada]);
+  }, [activeLeague?.id, activeLeague?.competition_id, targetJornada]);
 
   useEffect(() => {
     fetchInitialData();

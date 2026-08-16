@@ -77,10 +77,11 @@ export default function SelectScreen() {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [picksSummary, setPicksSummary] = useState<SummaryItem[]>([]);
 
-  const isDeadlinePassed = config.picks_deadline
-    ? new Date() > new Date(config.picks_deadline)
-    : false;
-  const isPicksOpen = config.picks_open && !isDeadlinePassed;
+  // If picks are closed for current jornada, target the NEXT available upcoming jornada
+  const isCurrentJornadaClosed = !config.picks_open;
+  const targetJornada = isCurrentJornadaClosed
+    ? config.current_jornada + 1
+    : config.current_jornada;
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -88,8 +89,6 @@ export default function SelectScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || (await supabase.auth.getUser()).data?.user;
       if (!user) return;
-
-      const activeJornada = config.current_jornada || 1;
 
       // Fetch alive entries (filtered by active league if present)
       let entriesQuery = supabase
@@ -109,7 +108,7 @@ export default function SelectScreen() {
         setSelectedEntry(entriesData[0].id);
       }
 
-      // Fetch matches for active jornada with scores and status
+      // Fetch matches for target upcoming jornada
       let matchesQuery = supabase
         .from('sur_matches')
         .select(`
@@ -123,7 +122,7 @@ export default function SelectScreen() {
           home_team:sur_teams!home_team_id(id, name),
           away_team:sur_teams!away_team_id(id, name)
         `)
-        .eq('jornada', activeJornada);
+        .eq('jornada', targetJornada);
 
       if (activeLeague?.competition_id) {
         matchesQuery = matchesQuery.or(
@@ -138,17 +137,17 @@ export default function SelectScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeLeague, config.current_jornada]);
+  }, [activeLeague, targetJornada]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
   useEffect(() => {
-    if (selectedEntry && config.current_jornada) {
-      fetchEntrySelections(selectedEntry, config.current_jornada);
+    if (selectedEntry && targetJornada) {
+      fetchEntrySelections(selectedEntry, targetJornada);
     }
-  }, [selectedEntry, config.current_jornada]);
+  }, [selectedEntry, targetJornada]);
 
   async function fetchEntrySelections(entryId: string, jornada: number) {
     const { data: allSelections } = await supabase
@@ -212,7 +211,7 @@ export default function SelectScreen() {
             team:sur_teams!team_id(name)
           `)
           .eq('entry_id', entry.id)
-          .eq('jornada', config.current_jornada)
+          .eq('jornada', targetJornada)
           .maybeSingle();
 
         const teamName = (selData as any)?.team?.name || 'Sin selección';
@@ -247,11 +246,6 @@ export default function SelectScreen() {
   async function handleConfirm() {
     if (!selectedEntry || !selectedTeam) return;
 
-    if (!isPicksOpen) {
-      Alert.alert('Plazo Cerrado', 'Los picks para esta jornada están cerrados.');
-      return;
-    }
-
     if (usedTeams.includes(selectedTeam)) {
       Alert.alert(
         'Equipo no disponible',
@@ -266,7 +260,7 @@ export default function SelectScreen() {
         {
           entry_id: selectedEntry,
           team_id: selectedTeam,
-          jornada: config.current_jornada,
+          jornada: targetJornada,
         },
         { onConflict: 'entry_id,jornada' }
       );
@@ -323,7 +317,7 @@ export default function SelectScreen() {
           <View>
             <Text style={styles.headerTitle}>Elegir Equipo</Text>
             <Text style={styles.headerSubtitle}>
-              Jornada {config.current_jornada} • Selecciona 1 ganador
+              Jornada {targetJornada} • Selecciona 1 ganador
             </Text>
           </View>
 
@@ -340,27 +334,19 @@ export default function SelectScreen() {
         {/* League Selector */}
         <LeagueSelector />
 
-        {/* Closed Picks Warning Banner */}
-        {!isPicksOpen && (
+        {/* Closed Picks Notice for active matchday */}
+        {isCurrentJornadaClosed && (
           <View style={styles.closedPicksBanner}>
             <Lock size={18} color={COLORS.warning} style={{ marginRight: 10, marginTop: 2 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.closedPicksTitle}>
-                Picks Cerrados — Jornada {config.current_jornada}
+                Picks de la jornada en juego cerrados.
               </Text>
               <Text style={styles.closedPicksSub}>
-                Los partidos ya están en juego o el plazo ha terminado. Los partidos se muestran a modo informativo con resultados en vivo y los equipos perdedores en rojo.
+                La Jornada {config.current_jornada} ya comenzó. Abajo tienes los partidos disponibles para hacer tu pick de la <Text style={{ color: COLORS.primary, fontWeight: '800' }}>Jornada {targetJornada}</Text>.
               </Text>
             </View>
           </View>
-        )}
-
-        {/* Countdown (only if open) */}
-        {isPicksOpen && config.picks_deadline && (
-          <CountdownTimer
-            deadline={config.picks_deadline}
-            style={{ marginBottom: 16 }}
-          />
         )}
 
         {/* Pick Selector Tabs */}
@@ -397,24 +383,18 @@ export default function SelectScreen() {
         </ScrollView>
 
         {/* Notice */}
-        {isPicksOpen ? (
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              📌 Elige al equipo que crees que GANARÁ. No podrás volver a elegirlo en
-              toda la temporada para esta vida.
-            </Text>
-          </View>
-        ) : null}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            📌 Elige al equipo que crees que GANARÁ en la <Text style={{ fontWeight: '800', color: COLORS.primary }}>Jornada {targetJornada}</Text>. Los equipos que ya seleccionaste con este pick aparecen en <Text style={{ color: '#EF4444', fontWeight: '800' }}>rojo</Text> y no pueden volver a usarse.
+          </Text>
+        </View>
 
         {/* Matches List */}
         <Text style={styles.sectionTitle}>
-          Partidos Jornada {config.current_jornada}
+          Partidos Jornada {targetJornada}
         </Text>
         {matches.map((match) => {
-          const postponedInfo = getMatchPostponedInfo(
-            match,
-            config.current_jornada
-          );
+          const postponedInfo = getMatchPostponedInfo(match, targetJornada);
           const isPostponed = postponedInfo.isPostponed;
 
           const isHomeUsed = usedTeams.includes(match.home_team?.id);
@@ -426,30 +406,12 @@ export default function SelectScreen() {
           const isHomeCurrent = currentSelection === match.home_team?.id;
           const isAwayCurrent = currentSelection === match.away_team?.id;
 
-          // Score and Match Result logic
-          const isFinished = match.status === 'FINISHED';
-          const isInPlay = match.status === 'IN_PLAY';
-          const hasScore =
-            match.home_score !== null &&
-            match.home_score !== undefined &&
-            match.away_score !== null &&
-            match.away_score !== undefined;
-
-          const isHomeLosing = hasScore && match.home_score! < match.away_score!;
-          const isAwayLosing = hasScore && match.away_score! < match.home_score!;
-          const isHomeWinning = hasScore && match.home_score! > match.away_score!;
-          const isAwayWinning = hasScore && match.away_score! > match.home_score!;
-          const isDraw = hasScore && match.home_score === match.away_score;
-
-          const isMatchClickable = isPicksOpen && !isPostponed;
-
           return (
             <View
               key={match.id}
               style={[
                 styles.matchCard,
                 isPostponed && styles.matchCardPostponed,
-                !isPicksOpen && styles.matchCardClosed,
               ]}
             >
               {isPostponed && (
@@ -469,18 +431,15 @@ export default function SelectScreen() {
                 {/* Home Team */}
                 <TouchableOpacity
                   onPress={() =>
-                    isMatchClickable &&
                     !isHomeUsed &&
+                    !isPostponed &&
                     setSelectedTeam(match.home_team?.id)
                   }
-                  disabled={!isMatchClickable || isHomeUsed}
+                  disabled={isHomeUsed || isPostponed}
                   style={[
                     styles.teamButton,
-                    isHomeSelected && isPicksOpen && styles.teamButtonSelected,
-                    (isHomeUsed || isPostponed) && styles.teamButtonDisabled,
-                    !isPicksOpen && styles.teamButtonGreyed,
-                    isHomeLosing && styles.teamButtonLosing,
-                    isHomeWinning && styles.teamButtonWinning,
+                    isHomeSelected && styles.teamButtonSelected,
+                    isHomeUsed && styles.teamButtonUsed,
                     isHomeCurrent && styles.teamButtonCurrent,
                   ]}
                   activeOpacity={0.7}
@@ -488,87 +447,48 @@ export default function SelectScreen() {
                   <Text
                     style={[
                       styles.teamButtonText,
-                      isHomeSelected && isPicksOpen && styles.teamButtonTextSelected,
-                      (isHomeUsed || isPostponed) && styles.teamButtonTextDisabled,
-                      !isPicksOpen && styles.teamButtonTextGreyed,
-                      isHomeLosing && styles.teamButtonTextLosing,
-                      isHomeWinning && styles.teamButtonTextWinning,
+                      isHomeSelected && styles.teamButtonTextSelected,
+                      isHomeUsed && styles.teamButtonTextUsed,
                       isHomeCurrent && styles.teamButtonTextCurrent,
                     ]}
                     numberOfLines={1}
                   >
                     {match.home_team?.name}
                   </Text>
-                  <Text style={[styles.venueLabel, isHomeLosing && styles.venueLabelLosing]}>
+                  <Text style={[styles.venueLabel, isHomeUsed && styles.venueLabelUsed]}>
                     Local
                   </Text>
 
                   {/* Status Badges */}
-                  {isHomeUsed && isPicksOpen && (
-                    <Text style={styles.usedBadge}>USADO</Text>
+                  {isHomeUsed && (
+                    <View style={styles.usedBadgeBox}>
+                      <Text style={styles.usedBadgeText}>❌ YA SELECCIONADO</Text>
+                    </View>
                   )}
                   {isHomeCurrent && (
                     <View style={styles.currentBadgeBox}>
-                      <Text style={styles.currentBadgeText}>✅ TU PICK</Text>
-                    </View>
-                  )}
-                  {isHomeLosing && (
-                    <View style={styles.losingBadgeBox}>
-                      <Text style={styles.losingBadgeText}>❌ DERROTA</Text>
-                    </View>
-                  )}
-                  {isHomeWinning && (
-                    <View style={styles.winningBadgeBox}>
-                      <Text style={styles.winningBadgeText}>🏆 GANADOR</Text>
+                      <Text style={styles.currentBadgeText}>✅ TU PICK J{targetJornada}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
 
-                {/* Score or VS Badge Center */}
-                {hasScore ? (
-                  <View style={styles.scoreContainer}>
-                    <Text style={styles.scoreText}>
-                      {match.home_score} - {match.away_score}
-                    </Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        isFinished ? styles.statusBadgeFinished : styles.statusBadgeLive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusBadgeText,
-                          isFinished
-                            ? styles.statusBadgeTextFinished
-                            : styles.statusBadgeTextLive,
-                        ]}
-                      >
-                        {isFinished ? 'FINAL' : 'EN VIVO'}
-                      </Text>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.vsBadge}>
-                    <Text style={styles.vsText}>VS</Text>
-                  </View>
-                )}
+                {/* VS Center Badge */}
+                <View style={styles.vsBadge}>
+                  <Text style={styles.vsText}>VS</Text>
+                </View>
 
                 {/* Away Team */}
                 <TouchableOpacity
                   onPress={() =>
-                    isMatchClickable &&
                     !isAwayUsed &&
+                    !isPostponed &&
                     setSelectedTeam(match.away_team?.id)
                   }
-                  disabled={!isMatchClickable || isAwayUsed}
+                  disabled={isAwayUsed || isPostponed}
                   style={[
                     styles.teamButton,
-                    isAwaySelected && isPicksOpen && styles.teamButtonSelected,
-                    (isAwayUsed || isPostponed) && styles.teamButtonDisabled,
-                    !isPicksOpen && styles.teamButtonGreyed,
-                    isAwayLosing && styles.teamButtonLosing,
-                    isAwayWinning && styles.teamButtonWinning,
+                    isAwaySelected && styles.teamButtonSelected,
+                    isAwayUsed && styles.teamButtonUsed,
                     isAwayCurrent && styles.teamButtonCurrent,
                   ]}
                   activeOpacity={0.7}
@@ -576,38 +496,27 @@ export default function SelectScreen() {
                   <Text
                     style={[
                       styles.teamButtonText,
-                      isAwaySelected && isPicksOpen && styles.teamButtonTextSelected,
-                      (isAwayUsed || isPostponed) && styles.teamButtonTextDisabled,
-                      !isPicksOpen && styles.teamButtonTextGreyed,
-                      isAwayLosing && styles.teamButtonTextLosing,
-                      isAwayWinning && styles.teamButtonTextWinning,
+                      isAwaySelected && styles.teamButtonTextSelected,
+                      isAwayUsed && styles.teamButtonTextUsed,
                       isAwayCurrent && styles.teamButtonTextCurrent,
                     ]}
                     numberOfLines={1}
                   >
                     {match.away_team?.name}
                   </Text>
-                  <Text style={[styles.venueLabel, isAwayLosing && styles.venueLabelLosing]}>
+                  <Text style={[styles.venueLabel, isAwayUsed && styles.venueLabelUsed]}>
                     Visitante
                   </Text>
 
                   {/* Status Badges */}
-                  {isAwayUsed && isPicksOpen && (
-                    <Text style={styles.usedBadge}>USADO</Text>
+                  {isAwayUsed && (
+                    <View style={styles.usedBadgeBox}>
+                      <Text style={styles.usedBadgeText}>❌ YA SELECCIONADO</Text>
+                    </View>
                   )}
                   {isAwayCurrent && (
                     <View style={styles.currentBadgeBox}>
-                      <Text style={styles.currentBadgeText}>✅ TU PICK</Text>
-                    </View>
-                  )}
-                  {isAwayLosing && (
-                    <View style={styles.losingBadgeBox}>
-                      <Text style={styles.losingBadgeText}>❌ DERROTA</Text>
-                    </View>
-                  )}
-                  {isAwayWinning && (
-                    <View style={styles.winningBadgeBox}>
-                      <Text style={styles.winningBadgeText}>🏆 GANADOR</Text>
+                      <Text style={styles.currentBadgeText}>✅ TU PICK J{targetJornada}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -619,11 +528,11 @@ export default function SelectScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Floating Confirmation Bar (Only visible when picks are open) */}
-      {isPicksOpen && selectedTeam && (
+      {/* Floating Confirmation Bar */}
+      {selectedTeam && (
         <View style={styles.floatingBar}>
           <View style={styles.floatingInfo}>
-            <Text style={styles.floatingLabel}>Tu Selección:</Text>
+            <Text style={styles.floatingLabel}>Tu Selección para J{targetJornada}:</Text>
             <Text style={styles.floatingTeam} numberOfLines={1}>
               {selectedTeamDetails?.name}
             </Text>
@@ -660,7 +569,7 @@ export default function SelectScreen() {
               <Sparkles size={36} color={COLORS.primary} />
               <Text style={styles.modalTitle}>¡Selección Guardada! 🎉</Text>
               <Text style={styles.modalSubtitle}>
-                Tus selecciones para la Jornada {config.current_jornada}
+                Tus selecciones para la Jornada {targetJornada}
               </Text>
             </View>
 
@@ -822,9 +731,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
   },
-  matchCardClosed: {
-    opacity: 0.88,
-  },
   matchCardPostponed: {
     borderColor: 'rgba(255, 184, 0, 0.3)',
     backgroundColor: 'rgba(255, 184, 0, 0.02)',
@@ -858,7 +764,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: COLORS.surfaceBorder,
-    minHeight: 74,
+    minHeight: 78,
     justifyContent: 'center',
   },
   teamButtonSelected: {
@@ -869,21 +775,14 @@ const styles = StyleSheet.create({
     opacity: 0.45,
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
-  teamButtonGreyed: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderColor: 'rgba(255,255,255,0.08)',
+  teamButtonUsed: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    opacity: 0.85,
   },
   teamButtonCurrent: {
     borderColor: COLORS.primary,
     backgroundColor: 'rgba(0, 255, 157, 0.12)',
-  },
-  teamButtonLosing: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.45)',
-  },
-  teamButtonWinning: {
-    backgroundColor: 'rgba(0, 255, 157, 0.08)',
-    borderColor: 'rgba(0, 255, 157, 0.3)',
   },
   teamButtonText: {
     color: COLORS.textPrimary,
@@ -897,20 +796,14 @@ const styles = StyleSheet.create({
   teamButtonTextDisabled: {
     color: COLORS.textMuted,
   },
-  teamButtonTextGreyed: {
-    color: COLORS.textSecondary,
-  },
-  teamButtonTextCurrent: {
-    color: COLORS.primary,
-    fontWeight: '900',
-  },
-  teamButtonTextLosing: {
+  teamButtonTextUsed: {
     color: '#EF4444',
     textDecorationLine: 'line-through',
     textDecorationColor: '#EF4444',
   },
-  teamButtonTextWinning: {
+  teamButtonTextCurrent: {
     color: COLORS.primary,
+    fontWeight: '900',
   },
   venueLabel: {
     fontSize: 10,
@@ -919,20 +812,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '600',
   },
-  venueLabelLosing: {
+  venueLabelUsed: {
     color: '#F87171',
   },
-  usedBadge: {
+  usedBadgeBox: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    fontSize: 9,
-    fontWeight: '900',
-    color: COLORS.dead,
-    backgroundColor: COLORS.deadBg,
-    paddingHorizontal: 4,
+    bottom: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  usedBadgeText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#EF4444',
   },
   currentBadgeBox: {
     position: 'absolute',
@@ -950,72 +846,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '900',
     color: COLORS.textInverse,
-  },
-  losingBadgeBox: {
-    position: 'absolute',
-    bottom: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  losingBadgeText: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: '#EF4444',
-  },
-  winningBadgeBox: {
-    position: 'absolute',
-    bottom: 4,
-    backgroundColor: 'rgba(0, 255, 157, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 157, 0.3)',
-  },
-  winningBadgeText: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: COLORS.primary,
-  },
-  scoreContainer: {
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 64,
-  },
-  scoreText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: COLORS.textPrimary,
-    letterSpacing: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 4,
-  },
-  statusBadgeFinished: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  statusBadgeLive: {
-    backgroundColor: 'rgba(0, 255, 157, 0.2)',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  statusBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  statusBadgeTextFinished: {
-    color: COLORS.textMuted,
-  },
-  statusBadgeTextLive: {
-    color: COLORS.primary,
   },
   vsBadge: {
     paddingHorizontal: 8,

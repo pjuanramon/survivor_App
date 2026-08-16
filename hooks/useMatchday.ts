@@ -21,7 +21,7 @@ export function useMatchday(competitionId?: string) {
 
       let baseConfig: CompetitionConfig | null = null;
 
-      // 1. Fetch competition config
+      // 1. Fetch competition config for target competition
       if (targetCompId) {
         const { data: compConfig, error } = await supabase
           .from('sur_competition_config')
@@ -53,32 +53,15 @@ export function useMatchday(competitionId?: string) {
       }
 
       if (baseConfig) {
-        const leagueStart = activeLeague?.start_jornada;
-
-        // If league starts in a future jornada, use that starting jornada with open picks
-        if (leagueStart && leagueStart > baseConfig.current_jornada) {
-          setConfig({
-            ...baseConfig,
-            current_jornada: leagueStart,
-            picks_open: true,
-          });
-        } else if (!baseConfig.picks_open && !activeLeague?.is_public && (!leagueStart || leagueStart <= baseConfig.current_jornada)) {
-          // If current jornada picks are locked, private league defaults to next upcoming complete jornada
-          setConfig({
-            ...baseConfig,
-            current_jornada: baseConfig.current_jornada + 1,
-            picks_open: true,
-          });
-        } else {
-          setConfig(baseConfig);
-        }
+        // Return exact authoritative current jornada and config without altering global jornada
+        setConfig(baseConfig);
       }
     } catch (err) {
       console.error('Error fetching matchday config:', err);
     } finally {
       setLoading(false);
     }
-  }, [targetCompId, activeLeague?.id, activeLeague?.start_jornada, activeLeague?.is_public]);
+  }, [targetCompId]);
 
   useEffect(() => {
     fetchConfig();

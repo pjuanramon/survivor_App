@@ -202,7 +202,7 @@ export default function DashboardScreen() {
         )}
 
         {/* Live Countdown Timer */}
-        {config.picks_deadline && (
+        {config.picks_open && config.picks_deadline && (
           <CountdownTimer
             deadline={config.picks_deadline}
             style={{ marginBottom: 16 }}
@@ -313,18 +313,6 @@ export default function DashboardScreen() {
                     )}
                   </View>
                 )}
-              </View>
-
-              {/* Stats Row */}
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>PUNTOS</Text>
-                  <Text style={styles.statValue}>{pick.total_points}</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>GOLES A FAVOR</Text>
-                  <Text style={styles.statValue}>{pick.total_gf}</Text>
-                </View>
               </View>
             </View>
           ))

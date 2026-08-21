@@ -27,7 +27,7 @@ export function useLeagues() {
 
       if (!user) {
         const { data: userData } = await supabase.auth.getUser();
-        user = userData?.user ?? null;
+        user = userData?.user ?? undefined;
       }
 
       if (!user) {

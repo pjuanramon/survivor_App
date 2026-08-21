@@ -5,12 +5,10 @@ import {
   ScrollView,
   SafeAreaView,
   ActivityIndicator,
-  TouchableOpacity,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { Trophy, Skull, Lock, Eye, Table, LayoutList } from 'lucide-react-native';
 import { COLORS } from '../../constants/colors';
 import { LeagueSelector } from '../../components/leagues/LeagueSelector';
 import { CreateLeagueModal } from '../../components/leagues/CreateLeagueModal';
@@ -36,7 +34,6 @@ interface Selection {
 }
 
 export default function LeaderboardScreen() {
-  const [viewMode, setViewMode] = useState<'ranking' | 'matrix'>('ranking');
   const [leaderboard, setLeaderboard] = useState<Entry[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -110,11 +107,6 @@ export default function LeaderboardScreen() {
     fetchData();
   };
 
-  const isDeadlinePassed = config.picks_deadline
-    ? new Date() > new Date(config.picks_deadline)
-    : true;
-  const isPicksRevealed = true; // Picks are open & revealed for live match tracking
-
   // Generate matchdays list for table columns
   const matchdayColumns = Array.from(
     { length: Math.max(1, config.current_jornada) },
@@ -146,63 +138,8 @@ export default function LeaderboardScreen() {
           <View>
             <Text style={styles.title}>Clasificación</Text>
             <Text style={styles.subtitle}>
-              {activeLeague?.name || 'Futvivor'} • J{config.current_jornada}
+              {activeLeague?.name || 'Futvivor'} • Jornada {config.current_jornada}
             </Text>
-          </View>
-
-          {/* Toggle View Mode */}
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              onPress={() => setViewMode('ranking')}
-              style={[
-                styles.toggleBtn,
-                viewMode === 'ranking' && styles.toggleBtnActive,
-              ]}
-              activeOpacity={0.7}
-            >
-              <LayoutList
-                size={16}
-                color={
-                  viewMode === 'ranking'
-                    ? COLORS.textInverse
-                    : COLORS.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.toggleBtnText,
-                  viewMode === 'ranking' && styles.toggleBtnTextActive,
-                ]}
-              >
-                RANKING
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setViewMode('matrix')}
-              style={[
-                styles.toggleBtn,
-                viewMode === 'matrix' && styles.toggleBtnActive,
-              ]}
-              activeOpacity={0.7}
-            >
-              <Table
-                size={16}
-                color={
-                  viewMode === 'matrix'
-                    ? COLORS.textInverse
-                    : COLORS.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.toggleBtnText,
-                  viewMode === 'matrix' && styles.toggleBtnTextActive,
-                ]}
-              >
-                TABLA
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -211,114 +148,37 @@ export default function LeaderboardScreen() {
           onCreateOrJoinPress={() => setCreateModalVisible(true)}
         />
 
-        {/* View Mode 1: RANKING CARDS */}
-        {viewMode === 'ranking' &&
-          (leaderboard.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>
-                No hay registros de jugadores en la clasificación aún.
-              </Text>
-            </View>
-          ) : (
-            leaderboard.map((entry, index) => (
-              <View
-                key={entry.id}
-                style={[styles.card, !entry.is_alive && styles.cardDead]}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.userInfo}>
-                    <View
-                      style={[
-                        styles.avatarCircle,
-                        entry.is_alive
-                          ? styles.avatarAlive
-                          : styles.avatarDead,
-                      ]}
-                    >
-                      {entry.is_alive ? (
-                        <Trophy size={18} color={COLORS.alive} />
-                      ) : (
-                        <Skull size={18} color={COLORS.dead} />
-                      )}
-                    </View>
-                    <View>
-                      <Text
-                        style={[
-                          styles.username,
-                          !entry.is_alive && styles.tdTextDead,
-                        ]}
-                      >
-                        {entry.profiles?.username || 'Usuario'}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.entryName,
-                          !entry.is_alive && styles.tdTextDead,
-                        ]}
-                      >
-                        {entry.entry_name}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.rankInfo}>
-                    <Text
-                      style={[
-                        styles.statusText,
-                        entry.is_alive
-                          ? styles.statusAlive
-                          : styles.statusDead,
-                      ]}
-                    >
-                      {entry.is_alive ? 'VIVO' : 'RIP 💀'}
-                    </Text>
-                    <Text style={styles.rankNumber}>#{index + 1}</Text>
-                  </View>
-                </View>
-
-                {/* Bento Stats */}
-                <View style={styles.statsRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>PUNTOS</Text>
-                    <Text style={styles.statValue}>{entry.total_points}</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statLabel}>GOLES A FAVOR</Text>
-                    <Text style={styles.statValue}>{entry.total_gf}</Text>
-                  </View>
-                </View>
-              </View>
-            ))
-          ))}
-
-        {/* View Mode 2: MATRIX TABLE VIEW */}
-        {viewMode === 'matrix' && (
-          <View style={styles.matrixContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-              <View>
-                {/* Table Header */}
-                <View style={styles.tableHeaderRow}>
+        {/* MATRIX TABLE VIEW WITH FIXED FIRST 2 COLUMNS */}
+        {leaderboard.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>
+              No hay registros de jugadores en la clasificación aún.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.matrixCard}>
+            <View style={styles.tableFlexRow}>
+              {/* ======================================================== */}
+              {/* 1. FIXED LEFT COLUMNS (JUGADOR & VIDA)                   */}
+              {/* ======================================================== */}
+              <View style={styles.fixedSideContainer}>
+                {/* Header Fixed */}
+                <View style={styles.tableHeaderRowFixed}>
                   <Text style={[styles.thCell, styles.thPlayer]}>JUGADOR</Text>
                   <Text style={[styles.thCell, styles.thPickName]}>VIDA</Text>
-                  <Text style={[styles.thCell, styles.thPts]}>PTS</Text>
-                  <Text style={[styles.thCell, styles.thGf]}>GF</Text>
-                  {matchdayColumns.map((j) => (
-                    <Text key={j} style={[styles.thCell, styles.thJornada]}>
-                      JORNADA {j}
-                    </Text>
-                  ))}
                 </View>
 
-                {/* Table Rows */}
+                {/* Rows Fixed */}
                 {leaderboard.map((entry, idx) => {
                   const isCurrentUser = currentUserId === entry.player_id;
+                  const isAlt = idx % 2 === 1;
 
                   return (
                     <View
                       key={entry.id}
                       style={[
-                        styles.tableRow,
-                        idx % 2 === 1 && styles.tableRowAlt,
+                        styles.tableRowFixed,
+                        isAlt && styles.tableRowAlt,
                         !entry.is_alive && styles.tableRowDead,
                       ]}
                     >
@@ -344,7 +204,7 @@ export default function LeaderboardScreen() {
                         </Text>
                       </View>
 
-                      {/* Entry Name */}
+                      {/* Entry / Vida Name */}
                       <View style={[styles.tdCell, styles.thPickName]}>
                         <Text
                           style={[
@@ -356,68 +216,108 @@ export default function LeaderboardScreen() {
                           {entry.entry_name}
                         </Text>
                       </View>
-
-                      {/* Points */}
-                      <View style={[styles.tdCell, styles.thPts]}>
-                        <Text style={styles.tdTextBold}>
-                          {entry.total_points}
-                        </Text>
-                      </View>
-
-                      {/* GF */}
-                      <View style={[styles.tdCell, styles.thGf]}>
-                        <Text style={styles.tdText}>{entry.total_gf}</Text>
-                      </View>
-
-                      {/* Matchday Columns */}
-                      {matchdayColumns.map((j) => {
-                        const sel = selections.find(
-                          (s) => s.entry_id === entry.id && s.jornada === j
-                        );
-                        const isCurrentJornada = j === config.current_jornada;
-
-                        return (
-                          <View
-                            key={j}
-                            style={[
-                              styles.tdCell,
-                              styles.thJornada,
-                              styles.jornadaCell,
-                            ]}
-                          >
-                            {!sel ? (
-                              <Text style={styles.emptyDash}>-</Text>
-                            ) : (
-                              <View
-                                style={[
-                                  styles.teamBadge,
-                                  isCurrentJornada &&
-                                    isCurrentUser &&
-                                    styles.userPickBadge,
-                                  !entry.is_alive && styles.teamBadgeDead,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.teamPickText,
-                                    isCurrentJornada &&
-                                      isCurrentUser &&
-                                      styles.userPickText,
-                                    !entry.is_alive && styles.teamPickTextDead,
-                                  ]}
-                                >
-                                  {sel.team?.name || 'Selección'}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })}
                     </View>
                   );
                 })}
               </View>
-            </ScrollView>
+
+              {/* ======================================================== */}
+              {/* 2. SCROLLABLE RIGHT COLUMNS (PTS, GF, JORNADA 1, 2...)   */}
+              {/* ======================================================== */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                style={styles.scrollableSideContainer}
+              >
+                <View>
+                  {/* Header Scrollable */}
+                  <View style={styles.tableHeaderRowScrollable}>
+                    <Text style={[styles.thCell, styles.thPts]}>PTS</Text>
+                    <Text style={[styles.thCell, styles.thGf]}>GF</Text>
+                    {matchdayColumns.map((j) => (
+                      <Text key={j} style={[styles.thCell, styles.thJornada]}>
+                        JORNADA {j}
+                      </Text>
+                    ))}
+                  </View>
+
+                  {/* Rows Scrollable */}
+                  {leaderboard.map((entry, idx) => {
+                    const isCurrentUser = currentUserId === entry.player_id;
+                    const isAlt = idx % 2 === 1;
+
+                    return (
+                      <View
+                        key={entry.id}
+                        style={[
+                          styles.tableRowScrollable,
+                          isAlt && styles.tableRowAlt,
+                          !entry.is_alive && styles.tableRowDead,
+                        ]}
+                      >
+                        {/* Points */}
+                        <View style={[styles.tdCell, styles.thPts]}>
+                          <Text style={styles.tdTextBold}>
+                            {entry.total_points}
+                          </Text>
+                        </View>
+
+                        {/* GF */}
+                        <View style={[styles.tdCell, styles.thGf]}>
+                          <Text style={styles.tdText}>{entry.total_gf}</Text>
+                        </View>
+
+                        {/* Matchday Columns */}
+                        {matchdayColumns.map((j) => {
+                          const sel = selections.find(
+                            (s) => s.entry_id === entry.id && s.jornada === j
+                          );
+                          const isCurrentJornada = j === config.current_jornada;
+
+                          return (
+                            <View
+                              key={j}
+                              style={[
+                                styles.tdCell,
+                                styles.thJornada,
+                                styles.jornadaCell,
+                              ]}
+                            >
+                              {!sel ? (
+                                <Text style={styles.emptyDash}>-</Text>
+                              ) : (
+                                <View
+                                  style={[
+                                    styles.teamBadge,
+                                    isCurrentJornada &&
+                                      isCurrentUser &&
+                                      styles.userPickBadge,
+                                    !entry.is_alive && styles.teamBadgeDead,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.teamPickText,
+                                      isCurrentJornada &&
+                                        isCurrentUser &&
+                                        styles.userPickText,
+                                      !entry.is_alive && styles.teamPickTextDead,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {sel.team?.name || 'Selección'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
           </View>
         )}
 
@@ -433,6 +333,9 @@ export default function LeaderboardScreen() {
   );
 }
 
+const ROW_HEIGHT = 48;
+const HEADER_HEIGHT = 40;
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -445,8 +348,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    padding: 20,
-    maxWidth: 680,
+    padding: 16,
+    maxWidth: 720,
     width: '100%',
     alignSelf: 'center',
   },
@@ -455,8 +358,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    flexWrap: 'wrap',
-    gap: 10,
   },
   title: {
     fontSize: 26,
@@ -469,152 +370,75 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  toggleRow: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surfaceElevated,
-    borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-  },
-  toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  toggleBtnActive: {
-    backgroundColor: COLORS.primary,
-  },
-  toggleBtnText: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '800',
-    marginLeft: 4,
-  },
-  toggleBtnTextActive: {
-    color: COLORS.textInverse,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-  },
-  cardDead: {
-    borderColor: 'rgba(255, 77, 77, 0.25)',
-    backgroundColor: 'rgba(255, 77, 77, 0.02)',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatarAlive: {
-    backgroundColor: COLORS.aliveBg,
-  },
-  avatarDead: {
-    backgroundColor: COLORS.deadBg,
-  },
-  username: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  entryName: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  rankInfo: {
-    alignItems: 'flex-end',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '900',
-    marginBottom: 2,
-    letterSpacing: 0.5,
-  },
-  statusAlive: {
-    color: COLORS.alive,
-  },
-  statusDead: {
-    color: COLORS.dead,
-  },
-  rankNumber: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: COLORS.textPrimary,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceElevated,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    marginBottom: 2,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  matrixContainer: {
+  matrixCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
     overflow: 'hidden',
-    marginTop: 4,
+    marginTop: 8,
   },
-  secrecyBanner: {
+  tableFlexRow: {
+    flexDirection: 'row',
+  },
+  // Fixed side (Jugador + Vida)
+  fixedSideContainer: {
+    backgroundColor: COLORS.surface,
+    borderRightWidth: 1.5,
+    borderRightColor: COLORS.surfaceBorder,
+    zIndex: 10,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 3, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  tableHeaderRowFixed: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 184, 0, 0.1)',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 184, 0, 0.2)',
-  },
-  secrecyText: {
-    color: COLORS.warning,
-    fontSize: 11,
-    fontWeight: '600',
-    flex: 1,
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
+    height: HEADER_HEIGHT,
     backgroundColor: COLORS.surfaceElevated,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.surfaceBorder,
-    paddingVertical: 10,
     paddingHorizontal: 8,
   },
+  tableRowFixed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: ROW_HEIGHT,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
+    paddingHorizontal: 8,
+  },
+  // Scrollable side (PTS, GF, Jornadas)
+  scrollableSideContainer: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+  },
+  tableHeaderRowScrollable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: HEADER_HEIGHT,
+    backgroundColor: COLORS.surfaceElevated,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
+    paddingHorizontal: 6,
+  },
+  tableRowScrollable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: ROW_HEIGHT,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
+    paddingHorizontal: 6,
+  },
+  tableRowAlt: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  tableRowDead: {
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
+  },
+  // Cell styling
   thCell: {
     fontSize: 10,
     fontWeight: '900',
@@ -622,38 +446,24 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   thPlayer: {
-    width: 110,
-    paddingLeft: 4,
+    width: 112,
+    paddingLeft: 2,
   },
   thPickName: {
-    width: 75,
+    width: 72,
   },
   thPts: {
-    width: 40,
+    width: 44,
     textAlign: 'center',
   },
   thGf: {
-    width: 35,
+    width: 40,
     textAlign: 'center',
   },
   thJornada: {
-    width: 140,
-    minWidth: 140,
+    width: 145,
+    minWidth: 145,
     textAlign: 'center',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.surfaceBorder,
-  },
-  tableRowAlt: {
-    backgroundColor: 'rgba(255, 255, 255, 0.015)',
-  },
-  tableRowDead: {
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
   },
   tdCell: {
     justifyContent: 'center',
@@ -667,12 +477,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textPrimary,
     fontWeight: '600',
+    flexShrink: 1,
   },
   tdTextDead: {
     color: '#EF4444',
     textDecorationLine: 'line-through',
     textDecorationColor: '#EF4444',
-    opacity: 0.9,
+    opacity: 0.85,
   },
   tdTextBold: {
     fontSize: 13,
@@ -690,7 +501,7 @@ const styles = StyleSheet.create({
   },
   aliveDot: {
     marginLeft: 4,
-    fontSize: 11,
+    fontSize: 10,
   },
   dotAlive: {
     color: COLORS.alive,
@@ -707,12 +518,12 @@ const styles = StyleSheet.create({
   },
   teamBadge: {
     backgroundColor: COLORS.surfaceElevated,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
-    minWidth: 120,
+    minWidth: 128,
     alignItems: 'center',
   },
   teamBadgeDead: {
@@ -740,6 +551,11 @@ const styles = StyleSheet.create({
   emptyBox: {
     padding: 30,
     alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    marginTop: 10,
   },
   emptyText: {
     color: COLORS.textSecondary,

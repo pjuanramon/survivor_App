@@ -34,21 +34,39 @@ export function useMatchday(competitionId?: string) {
         }
       }
 
-      // Fallback to legacy sur_config
+      // 2. Fallback to default active competition config in sur_competition_config
       if (!baseConfig) {
-        const { data: legacyConfig } = await supabase
-          .from('sur_config')
-          .select('*')
-          .eq('id', 1)
+        // Query LaLiga by default (or the first competition)
+        const { data: defaultComp } = await supabase
+          .from('sur_competitions')
+          .select('id')
+          .eq('short_name', 'laliga')
           .maybeSingle();
 
-        if (legacyConfig) {
-          baseConfig = {
-            competition_id: targetCompId || '',
-            current_jornada: legacyConfig.current_jornada || 1,
-            picks_open: legacyConfig.picks_open ?? true,
-            picks_deadline: legacyConfig.picks_deadline || null,
-          };
+        const defaultId = defaultComp?.id;
+
+        if (defaultId) {
+          const { data: compConfig } = await supabase
+            .from('sur_competition_config')
+            .select('*')
+            .eq('competition_id', defaultId)
+            .maybeSingle();
+
+          if (compConfig) {
+            baseConfig = compConfig;
+          }
+        }
+
+        if (!baseConfig) {
+          const { data: firstConfig } = await supabase
+            .from('sur_competition_config')
+            .select('*')
+            .limit(1)
+            .maybeSingle();
+
+          if (firstConfig) {
+            baseConfig = firstConfig;
+          }
         }
       }
 

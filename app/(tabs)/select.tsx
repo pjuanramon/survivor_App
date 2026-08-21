@@ -106,7 +106,7 @@ export default function SelectScreen() {
   const fetchMatches = useCallback(async (jornada: number) => {
     try {
       setDataLoading(true);
-      let { data: matchesData } = await supabase
+      let query = supabase
         .from('sur_matches')
         .select(`
           id,
@@ -118,27 +118,13 @@ export default function SelectScreen() {
           home_team:sur_teams!home_team_id(id, name),
           away_team:sur_teams!away_team_id(id, name)
         `)
-        .eq('jornada', jornada)
-        .eq('competition_id', activeLeague?.competition_id || '');
+        .eq('jornada', jornada);
 
-      // Fallback: if empty, fetch all with that jornada
-      if (!matchesData || matchesData.length === 0) {
-        const { data: fallback } = await supabase
-          .from('sur_matches')
-          .select(`
-            id,
-            home_team_id,
-            away_team_id,
-            home_score,
-            away_score,
-            status,
-            home_team:sur_teams!home_team_id(id, name),
-            away_team:sur_teams!away_team_id(id, name)
-          `)
-          .eq('jornada', jornada);
-        matchesData = fallback;
+      if (activeLeague?.competition_id) {
+        query = query.eq('competition_id', activeLeague.competition_id);
       }
 
+      const { data: matchesData } = await query;
       setMatches((matchesData as any) || []);
     } catch (error) {
       console.error('Error fetching matches:', error);
@@ -488,18 +474,32 @@ export default function SelectScreen() {
               <Sparkles size={36} color={COLORS.primary} />
               <Text style={styles.modalTitle}>¡Selección Guardada! 🎉</Text>
               <Text style={styles.modalSubtitle}>Tus selecciones para la Jornada {targetJornada}</Text>
+              <Text style={styles.modalHint}>Toca cualquier pick para cambiarlo directamente</Text>
             </View>
             <ScrollView style={styles.summaryList}>
               {picksSummary.map((item) => (
-                <View key={item.entryId} style={styles.summaryItem}>
+                <TouchableOpacity
+                  key={item.entryId}
+                  style={[
+                    styles.summaryItem,
+                    selectedEntry === item.entryId && styles.summaryItemSelected,
+                  ]}
+                  onPress={() => {
+                    setSummaryModalVisible(false);
+                    setSelectedEntry(item.entryId);
+                  }}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.summaryLeft}>
                     <Text style={styles.summaryEntryName}>{item.entryName}</Text>
-                    <Text style={styles.summaryMatchVs}>{item.matchVs}</Text>
+                    <Text style={styles.summaryMatchVs}>{item.matchVs || 'Sin partido'}</Text>
                   </View>
                   <View style={styles.summaryRight}>
-                    <Text style={styles.summaryTeam}>{item.teamName}</Text>
+                    <View style={styles.summaryTeamBadge}>
+                      <Text style={styles.summaryTeam}>{item.teamName}</Text>
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
             <TouchableOpacity
@@ -621,16 +621,29 @@ const styles = StyleSheet.create({
   celebrationHeader: { alignItems: 'center', marginBottom: 18 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, marginTop: 10, marginBottom: 4 },
   modalSubtitle: { fontSize: 13, color: COLORS.textSecondary },
-  summaryList: { maxHeight: 240, marginBottom: 20 },
+  modalHint: { fontSize: 11, color: COLORS.primary, marginTop: 6, fontWeight: '700' },
+  summaryList: { maxHeight: 260, marginBottom: 20 },
   summaryItem: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.surfaceElevated, borderRadius: 12, padding: 12,
-    marginBottom: 8, borderWidth: 1, borderColor: COLORS.surfaceBorder,
+    backgroundColor: COLORS.surfaceElevated, borderRadius: 14, padding: 14,
+    marginBottom: 10, borderWidth: 1, borderColor: COLORS.surfaceBorder,
+  },
+  summaryItemSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(0, 255, 157, 0.08)',
   },
   summaryLeft: { flex: 1 },
-  summaryEntryName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  summaryEntryName: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   summaryMatchVs: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
   summaryRight: { marginLeft: 10 },
+  summaryTeamBadge: {
+    backgroundColor: 'rgba(0, 255, 157, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 157, 0.3)',
+  },
   summaryTeam: { fontSize: 14, fontWeight: '800', color: COLORS.primary },
   modalDoneBtn: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   modalDoneBtnText: { color: COLORS.textInverse, fontWeight: '800', fontSize: 15 },

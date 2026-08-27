@@ -14,6 +14,7 @@ import { LeagueSelector } from '../../components/leagues/LeagueSelector';
 import { CreateLeagueModal } from '../../components/leagues/CreateLeagueModal';
 import { useAppStore } from '../../lib/store';
 import { useMatchday } from '../../hooks/useMatchday';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Entry {
   id: string;
@@ -36,10 +37,12 @@ interface Selection {
 export default function LeaderboardScreen() {
   const [leaderboard, setLeaderboard] = useState<Entry[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+
+  const { user } = useAuth();
+  const currentUserId = user?.id;
 
   const { activeLeague } = useAppStore();
   const { config } = useMatchday(activeLeague?.competition_id);
@@ -47,8 +50,6 @@ export default function LeaderboardScreen() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
 
       // Fetch Leaderboard Entries (filtered by active league if present)
       let entriesQuery = supabase
@@ -147,6 +148,29 @@ export default function LeaderboardScreen() {
         <LeagueSelector
           onCreateOrJoinPress={() => setCreateModalVisible(true)}
         />
+
+        {/* Picks Privacy Status Banner */}
+        {config.picks_open ? (
+          <View style={styles.privacyBanner}>
+            <Text style={styles.privacyBannerIcon}>🔒</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.privacyBannerTitle}>Picks Protegidos (Jornada {config.current_jornada})</Text>
+              <Text style={styles.privacyBannerSub}>
+                Los picks de los rivales están ocultos. Se revelarán automáticamente en esta tabla al inicio del primer partido.
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.privacyBanner, styles.privacyBannerOpen]}>
+            <Text style={styles.privacyBannerIcon}>🔓</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.privacyBannerTitle, { color: '#00FF9D' }]}>Jornada {config.current_jornada} en Juego</Text>
+              <Text style={styles.privacyBannerSub}>
+                Picks cerrados y revelados. Los equipos elegidos por todos los participantes ya son públicos.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* MATRIX TABLE VIEW WITH FIXED FIRST 2 COLUMNS */}
         {leaderboard.length === 0 ? (
@@ -273,6 +297,8 @@ export default function LeaderboardScreen() {
                             (s) => s.entry_id === entry.id && s.jornada === j
                           );
                           const isCurrentJornada = j === config.current_jornada;
+                          const isFutureOrOpen = (j >= config.current_jornada) && config.picks_open;
+                          const isHidden = isFutureOrOpen && !isCurrentUser;
 
                           return (
                             <View
@@ -285,6 +311,10 @@ export default function LeaderboardScreen() {
                             >
                               {!sel ? (
                                 <Text style={styles.emptyDash}>-</Text>
+                              ) : isHidden ? (
+                                <View style={[styles.teamBadge, styles.secretBadge]}>
+                                  <Text style={styles.secretText}>🔒 Oculto</Text>
+                                </View>
                               ) : (
                                 <View
                                   style={[
@@ -305,7 +335,9 @@ export default function LeaderboardScreen() {
                                     ]}
                                     numberOfLines={1}
                                   >
-                                    {sel.team?.name || 'Selección'}
+                                    {isFutureOrOpen && isCurrentUser
+                                      ? `🔒 ${sel.team?.name || 'Tu Pick'}`
+                                      : (sel.team?.name || 'Selección')}
                                   </Text>
                                 </View>
                               )}
@@ -547,6 +579,47 @@ const styles = StyleSheet.create({
   },
   userPickText: {
     color: COLORS.primary,
+  },
+  secretBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderStyle: 'dashed',
+  },
+  secretText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  privacyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  privacyBannerOpen: {
+    backgroundColor: 'rgba(0, 255, 157, 0.05)',
+    borderColor: 'rgba(0, 255, 157, 0.25)',
+  },
+  privacyBannerIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  privacyBannerTitle: {
+    color: '#E5E7EB',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  privacyBannerSub: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    lineHeight: 15,
   },
   emptyBox: {
     padding: 30,

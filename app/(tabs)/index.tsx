@@ -263,10 +263,17 @@ export default function DashboardScreen() {
                     {pick.is_alive ? (
                       <Trophy size={16} color={COLORS.alive} />
                     ) : (
-                      <Skull size={16} color={COLORS.dead} />
+                      <Skull size={16} color="#EF4444" />
                     )}
                   </View>
-                  <Text style={styles.pickName}>{pick.entry_name}</Text>
+                  <Text
+                    style={[
+                      styles.pickName,
+                      !pick.is_alive && styles.pickNameDead,
+                    ]}
+                  >
+                    {pick.entry_name}
+                  </Text>
                 </View>
 
                 <View
@@ -281,27 +288,27 @@ export default function DashboardScreen() {
                       pick.is_alive ? styles.tagTextAlive : styles.tagTextDead,
                     ]}
                   >
-                    {pick.is_alive ? 'VIVO' : 'ELIMINADO'}
+                    {pick.is_alive ? 'VIVO' : '💀 ELIMINADO'}
                   </Text>
                 </View>
               </View>
 
               {/* Selection Section */}
-              <View style={styles.selectionBox}>
-                <Text style={styles.selectionLabel}>
-                  SELECCIÓN JORNADA {config.current_jornada}
-                </Text>
-                {pick.current_team_name ? (
-                  <View>
-                    <Text style={styles.teamName}>{pick.current_team_name}</Text>
-                    {pick.current_match_vs && (
-                      <Text style={styles.matchVs}>{pick.current_match_vs}</Text>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.pendingRow}>
-                    <Text style={styles.pendingText}>⚠️ Pendiente de elegir</Text>
-                    {pick.is_alive && (
+              {pick.is_alive ? (
+                <View style={styles.selectionBox}>
+                  <Text style={styles.selectionLabel}>
+                    SELECCIÓN JORNADA {config.current_jornada}
+                  </Text>
+                  {pick.current_team_name ? (
+                    <View>
+                      <Text style={styles.teamName}>{pick.current_team_name}</Text>
+                      {pick.current_match_vs && (
+                        <Text style={styles.matchVs}>{pick.current_match_vs}</Text>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.pendingRow}>
+                      <Text style={styles.pendingText}>⚠️ Pendiente de elegir</Text>
                       <TouchableOpacity
                         onPress={() => router.push('/(tabs)/select')}
                         style={styles.selectBtn}
@@ -310,10 +317,25 @@ export default function DashboardScreen() {
                         <Text style={styles.selectBtnText}>Elegir</Text>
                         <ArrowRight size={14} color={COLORS.primary} />
                       </TouchableOpacity>
-                    )}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.deadNoticeBox}>
+                  <View style={styles.deadNoticeHeader}>
+                    <Skull size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                    <Text style={styles.deadNoticeTitle}>VIDA ELIMINADA (RIP)</Text>
                   </View>
-                )}
-              </View>
+                  <Text style={styles.deadNoticeSub}>
+                    Esta vida quedó eliminada y no participa en la Jornada {config.current_jornada}.
+                  </Text>
+                  <View style={styles.deadStatsRow}>
+                    <Text style={styles.deadStatsLabel}>
+                      Puntos Finales: <Text style={styles.deadStatsValue}>{pick.total_points}</Text>  •  GF: <Text style={styles.deadStatsValue}>{pick.total_gf}</Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           ))
         )}
@@ -483,8 +505,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.surfaceBorder,
   },
   pickCardDead: {
-    borderColor: 'rgba(255, 77, 77, 0.3)',
-    backgroundColor: 'rgba(255, 77, 77, 0.03)',
+    borderColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
+    opacity: 0.7,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -508,12 +531,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.aliveBg,
   },
   statusCircleDead: {
-    backgroundColor: COLORS.deadBg,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
   },
   pickName: {
     fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
+  },
+  pickNameDead: {
+    color: '#EF4444',
+    textDecorationLine: 'line-through',
+    textDecorationColor: '#EF4444',
+    opacity: 0.85,
   },
   statusTag: {
     paddingHorizontal: 10,
@@ -524,7 +555,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.aliveBg,
   },
   tagDead: {
-    backgroundColor: COLORS.deadBg,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
   },
   tagText: {
     fontSize: 11,
@@ -535,7 +568,49 @@ const styles = StyleSheet.create({
     color: COLORS.alive,
   },
   tagTextDead: {
-    color: COLORS.dead,
+    color: '#EF4444',
+    fontWeight: '900',
+  },
+  deadNoticeBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  deadNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  deadNoticeTitle: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  deadNoticeSub: {
+    color: '#D1D5DB',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  deadStatsRow: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignSelf: 'flex-start',
+  },
+  deadStatsLabel: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  deadStatsValue: {
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
   selectionBox: {
     backgroundColor: COLORS.surfaceElevated,

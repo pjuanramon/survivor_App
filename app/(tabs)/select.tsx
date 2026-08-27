@@ -18,10 +18,12 @@ import {
   AlertTriangle,
   ArrowRight,
   Sparkles,
+  Users,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { LeagueSelector } from '../../components/leagues/LeagueSelector';
+import { CountdownTimer } from '../../components/shared/CountdownTimer';
 import { useAppStore } from '../../lib/store';
 import { useMatchday } from '../../hooks/useMatchday';
 
@@ -282,20 +284,36 @@ export default function SelectScreen() {
         {/* League Selector */}
         <LeagueSelector />
 
+        {/* Live Countdown Timer before Jornada deadline */}
+        {config.picks_open && config.picks_deadline && (
+          <CountdownTimer
+            deadline={config.picks_deadline}
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
         {/* Closed Picks Notice */}
         {isCurrentJornadaClosed && (
           <View style={styles.closedPicksBanner}>
             <Lock size={18} color={COLORS.warning} style={{ marginRight: 10, marginTop: 2 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.closedPicksTitle}>
-                Picks de la jornada en juego cerrados.
+                ¡Picks de la Jornada {config.current_jornada} cerrados!
               </Text>
               <Text style={styles.closedPicksSub}>
-                La Jornada {config.current_jornada} ya comenzó. Elige tu pick para la{' '}
+                La Jornada {config.current_jornada} ya comenzó y todos los picks de tus rivales han sido revelados en la clasificación. Elige tu pick para la{' '}
                 <Text style={{ color: COLORS.primary, fontWeight: '800' }}>
                   Jornada {targetJornada}
                 </Text>.
               </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/leaderboard')}
+                style={styles.viewRivalsBtn}
+                activeOpacity={0.8}
+              >
+                <Users size={14} color="#000000" style={{ marginRight: 6 }} />
+                <Text style={styles.viewRivalsBtnText}>Ver Picks de Rivales en la Tabla</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -647,4 +665,19 @@ const styles = StyleSheet.create({
   summaryTeam: { fontSize: 14, fontWeight: '800', color: COLORS.primary },
   modalDoneBtn: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   modalDoneBtnText: { color: COLORS.textInverse, fontWeight: '800', fontSize: 15 },
+  viewRivalsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  viewRivalsBtnText: {
+    color: COLORS.textInverse,
+    fontWeight: '800',
+    fontSize: 12,
+  },
 });

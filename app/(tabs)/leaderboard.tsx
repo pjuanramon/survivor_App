@@ -47,6 +47,9 @@ export default function LeaderboardScreen() {
   const { activeLeague } = useAppStore();
   const { config } = useMatchday(activeLeague?.competition_id);
 
+  const isDeadlinePassed = config.picks_deadline ? new Date() >= new Date(config.picks_deadline) : false;
+  const isPicksEffectivelyOpen = config.picks_open && !isDeadlinePassed;
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -150,7 +153,7 @@ export default function LeaderboardScreen() {
         />
 
         {/* Picks Privacy Status Banner */}
-        {config.picks_open ? (
+        {isPicksEffectivelyOpen ? (
           <View style={styles.privacyBanner}>
             <Text style={styles.privacyBannerIcon}>🔒</Text>
             <View style={{ flex: 1 }}>
@@ -297,7 +300,7 @@ export default function LeaderboardScreen() {
                             (s) => s.entry_id === entry.id && s.jornada === j
                           );
                           const isCurrentJornada = j === config.current_jornada;
-                          const isFutureOrOpen = (j >= config.current_jornada) && config.picks_open;
+                          const isFutureOrOpen = (j > config.current_jornada) || (j === config.current_jornada && isPicksEffectivelyOpen);
                           const isHidden = isFutureOrOpen && !isCurrentUser;
 
                           return (

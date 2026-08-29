@@ -31,6 +31,7 @@ interface Selection {
   entry_id: string;
   jornada: number;
   team_id: string;
+  created_at?: string;
   team: { name: string } | null;
 }
 
@@ -90,6 +91,7 @@ export default function LeaderboardScreen() {
           entry_id,
           jornada,
           team_id,
+          created_at,
           team:sur_teams!team_id(name)
         `);
 
@@ -303,6 +305,12 @@ export default function LeaderboardScreen() {
                           const isFutureOrOpen = (j > config.current_jornada) || (j === config.current_jornada && isPicksEffectivelyOpen);
                           const isHidden = isFutureOrOpen && !isCurrentUser;
 
+                          const isAutoAssigned = !!(
+                            sel?.created_at &&
+                            config.picks_deadline &&
+                            new Date(sel.created_at) > new Date(config.picks_deadline)
+                          );
+
                           return (
                             <View
                               key={j}
@@ -326,6 +334,7 @@ export default function LeaderboardScreen() {
                                       isCurrentUser &&
                                       styles.userPickBadge,
                                     !entry.is_alive && styles.teamBadgeDead,
+                                    isAutoAssigned && styles.teamBadgeAuto,
                                   ]}
                                 >
                                   <Text
@@ -335,12 +344,13 @@ export default function LeaderboardScreen() {
                                         isCurrentUser &&
                                         styles.userPickText,
                                       !entry.is_alive && styles.teamPickTextDead,
+                                      isAutoAssigned && styles.teamPickTextAuto,
                                     ]}
                                     numberOfLines={1}
                                   >
                                     {isFutureOrOpen && isCurrentUser
                                       ? `🔒 ${sel.team?.name || 'Tu Pick'}`
-                                      : (sel.team?.name || 'Selección')}
+                                      : `${sel.team?.name || 'Selección'}${isAutoAssigned ? ' ⚠️' : ''}`}
                                   </Text>
                                 </View>
                               )}
@@ -355,6 +365,13 @@ export default function LeaderboardScreen() {
             </View>
           </View>
         )}
+
+        {/* Footnote / Legend for Auto-Assigned Picks */}
+        <View style={styles.legendRow}>
+          <Text style={styles.legendText}>
+            ⚠️ <Text style={{ fontWeight: '800', color: '#FBBF24' }}>Pick Asignado Automáticamente:</Text> Se le asignó el colista por no registrar selección a tiempo.
+          </Text>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -636,5 +653,28 @@ const styles = StyleSheet.create({
   emptyText: {
     color: COLORS.textSecondary,
     fontSize: 14,
+  },
+  teamBadgeAuto: {
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  teamPickTextAuto: {
+    color: '#FBBF24',
+    fontWeight: '800',
+  },
+  legendRow: {
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+    padding: 10,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  legendText: {
+    color: '#D1D5DB',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
   },
 });

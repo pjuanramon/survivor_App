@@ -31,6 +31,7 @@ interface PickDetail {
   total_gf: number;
   current_team_name?: string | null;
   current_match_vs?: string | null;
+  is_auto_assigned?: boolean;
 }
 
 export default function DashboardScreen() {
@@ -77,6 +78,7 @@ export default function DashboardScreen() {
             .from('sur_selections')
             .select(`
               team_id,
+              created_at,
               team:sur_teams!team_id(name)
             `)
             .eq('entry_id', entry.id)
@@ -85,6 +87,11 @@ export default function DashboardScreen() {
 
           let teamName = (selData as any)?.team?.name || null;
           let matchVs = null;
+          const isAutoAssigned = !!(
+            (selData as any)?.created_at &&
+            config.picks_deadline &&
+            new Date((selData as any).created_at) > new Date(config.picks_deadline)
+          );
 
           if (teamName) {
             const { data: matchData } = await supabase
@@ -108,6 +115,7 @@ export default function DashboardScreen() {
             ...entry,
             current_team_name: teamName,
             current_match_vs: matchVs,
+            is_auto_assigned: isAutoAssigned,
           };
         })
       );
@@ -301,9 +309,16 @@ export default function DashboardScreen() {
                   </Text>
                   {pick.current_team_name ? (
                     <View>
-                      <Text style={styles.teamName}>{pick.current_team_name}</Text>
+                      <Text style={[styles.teamName, pick.is_auto_assigned && styles.teamNameAuto]}>
+                        {pick.current_team_name}{pick.is_auto_assigned ? ' ⚠️' : ''}
+                      </Text>
                       {pick.current_match_vs && (
                         <Text style={styles.matchVs}>{pick.current_match_vs}</Text>
+                      )}
+                      {pick.is_auto_assigned && (
+                        <View style={styles.autoBadgeBox}>
+                          <Text style={styles.autoBadgeText}>⚠️ Asignado por reglamento (colista de la tabla)</Text>
+                        </View>
                       )}
                     </View>
                   ) : (
@@ -631,6 +646,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: COLORS.primary,
+  },
+  teamNameAuto: {
+    color: '#FBBF24',
+  },
+  autoBadgeBox: {
+    marginTop: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    alignSelf: 'flex-start',
+  },
+  autoBadgeText: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '700',
   },
   matchVs: {
     fontSize: 13,

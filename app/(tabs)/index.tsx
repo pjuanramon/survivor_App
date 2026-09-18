@@ -37,7 +37,7 @@ interface PickDetail {
 export default function DashboardScreen() {
   const router = useRouter();
   const { activeLeague } = useAppStore();
-  const { config, refetch: refetchMatchday } = useMatchday(activeLeague?.competition_id);
+  const { config, loading: configLoading, refetch: refetchMatchday } = useMatchday(activeLeague?.competition_id);
   const { refetch: refetchLeagues } = useLeagues();
 
   const [picks, setPicks] = useState<PickDetail[]>([]);
@@ -49,7 +49,10 @@ export default function DashboardScreen() {
   const [createPicksModalVisible, setCreatePicksModalVisible] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
+    if (configLoading) return;
+
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -127,11 +130,13 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeLeague, config.current_jornada]);
+  }, [activeLeague, config.current_jornada, configLoading, config.picks_deadline]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    if (!configLoading) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData, configLoading]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -140,7 +145,7 @@ export default function DashboardScreen() {
     fetchDashboardData();
   };
 
-  if (loading) {
+  if (loading || configLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color={COLORS.primary} size="large" />

@@ -113,9 +113,11 @@ export default function LeaderboardScreen() {
     fetchData();
   };
 
-  // Generate matchdays list for table columns
+  // Generate matchdays list for table columns (always show up to the currently targetable jornada)
+  const targetJornada = !config.picks_open ? config.current_jornada + 1 : config.current_jornada;
+  const maxJornadasToShow = Math.max(1, config.current_jornada, targetJornada);
   const matchdayColumns = Array.from(
-    { length: Math.max(1, config.current_jornada) },
+    { length: maxJornadasToShow },
     (_, i) => i + 1
   );
 

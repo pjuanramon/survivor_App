@@ -69,8 +69,9 @@ export default function SelectScreen() {
   const [picksSummary, setPicksSummary] = useState<SummaryItem[]>([]);
 
   // CRITICAL: Only compute these AFTER config has fully loaded from Supabase
-  // Do not derive from default state (picks_open: true is the initial default, not actual data)
-  const isCurrentJornadaClosed = configLoading ? null : !config.picks_open;
+  // Check both picks_open flag and whether deadline timestamp has passed
+  const isDeadlinePassed = config.picks_deadline ? new Date() >= new Date(config.picks_deadline) : false;
+  const isCurrentJornadaClosed = configLoading ? null : (!config.picks_open || isDeadlinePassed);
   const targetJornada = configLoading
     ? null
     : isCurrentJornadaClosed
@@ -209,6 +210,14 @@ export default function SelectScreen() {
 
   async function handleConfirm() {
     if (!selectedEntry || !selectedTeam || targetJornada === null) return;
+
+    if (isCurrentJornadaClosed && targetJornada === config.current_jornada) {
+      Alert.alert(
+        'Plazo Finalizado',
+        `El plazo para la Jornada ${config.current_jornada} ha concluido. Conforme al reglamento oficial, no se pueden registrar selecciones fuera de tiempo y se te asignará automáticamente el equipo colista.`
+      );
+      return;
+    }
 
     if (usedTeams.includes(selectedTeam)) {
       Alert.alert('Equipo no disponible', '¡Ya usaste este equipo en una jornada anterior!');

@@ -72,11 +72,7 @@ export default function SelectScreen() {
   // Check both picks_open flag and whether deadline timestamp has passed
   const isDeadlinePassed = config.picks_deadline ? new Date() >= new Date(config.picks_deadline) : false;
   const isCurrentJornadaClosed = configLoading ? null : (!config.picks_open || isDeadlinePassed);
-  const targetJornada = configLoading
-    ? null
-    : isCurrentJornadaClosed
-    ? config.current_jornada + 1
-    : config.current_jornada;
+  const targetJornada = configLoading ? null : config.current_jornada;
 
   // Fetch entries (only once, not dependent on jornada)
   const fetchEntries = useCallback(async () => {
@@ -310,10 +306,7 @@ export default function SelectScreen() {
                 ¡Picks de la Jornada {config.current_jornada} cerrados!
               </Text>
               <Text style={styles.closedPicksSub}>
-                La Jornada {config.current_jornada} ya comenzó y todos los picks de tus rivales han sido revelados en la clasificación. Elige tu pick para la{' '}
-                <Text style={{ color: COLORS.primary, fontWeight: '800' }}>
-                  Jornada {targetJornada}
-                </Text>.
+                El plazo para la Jornada {config.current_jornada} ha finalizado y los partidos están en juego. Puedes consultar las selecciones de todos los rivales en la tabla de clasificación.
               </Text>
               <TouchableOpacity
                 onPress={() => router.push('/(tabs)/leaderboard')}

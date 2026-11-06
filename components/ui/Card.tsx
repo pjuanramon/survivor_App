@@ -15,7 +15,7 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   const getStyle = (): ViewStyle => {
     const base: ViewStyle = {
-      borderRadius: 16,
+      borderRadius: 14,
       padding: 16,
     };
 
@@ -31,8 +31,8 @@ export const Card: React.FC<CardProps> = ({
         return {
           ...base,
           backgroundColor: COLORS.surface,
-          borderWidth: 1,
-          borderColor: COLORS.primaryGlow,
+          borderWidth: 1.5,
+          borderColor: COLORS.primaryBorder,
         };
       case 'outlined':
         return {

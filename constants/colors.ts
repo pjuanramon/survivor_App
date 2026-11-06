@@ -1,37 +1,41 @@
 export const COLORS = {
-  // Brand Primary
-  primary: '#00FF9D',
-  primaryHover: '#00E58D',
-  primaryMuted: 'rgba(0, 255, 157, 0.15)',
-  primaryGlow: 'rgba(0, 255, 157, 0.3)',
+  // Brand Signature — Athletic Volt (High-Tension Stadium Identity)
+  primary: '#D8FF00',
+  primaryHover: '#C5EB00',
+  primaryMuted: 'rgba(216, 255, 0, 0.11)',
+  primarySubtle: 'rgba(216, 255, 0, 0.06)',
+  primaryBorder: 'rgba(216, 255, 0, 0.34)',
+  primaryGlow: 'rgba(216, 255, 0, 0.25)',
 
-  // Surfaces & Backgrounds
-  background: '#0A0A0A',
-  surface: '#141414',
-  surfaceElevated: '#1E1E1E',
-  surfaceBorder: '#282828',
-  surfaceBorderHighlight: '#3A3A3A',
+  // Architectural Surfaces — Floodlight Pitch & Gunmetal Slate
+  background: '#0B0C0E',
+  surface: '#13161B',
+  surfaceElevated: '#1B1F27',
+  surfaceBorder: '#282E3A',
+  surfaceBorderHighlight: '#3B4454',
 
-  // Status & Badges
-  alive: '#00FF9D',
-  aliveBg: 'rgba(0, 255, 157, 0.15)',
-  dead: '#FF4D4D',
-  deadBg: 'rgba(255, 77, 77, 0.15)',
-  warning: '#FFB800',
-  warningBg: 'rgba(255, 184, 0, 0.15)',
-  info: '#38BDF8',
-  infoBg: 'rgba(56, 189, 248, 0.15)',
+  // Referee Cards & Match Status
+  alive: '#B8FF00',
+  aliveBg: 'rgba(184, 255, 0, 0.13)',
+  dead: '#FF3B1F', // Signal Vermilion (Red Card)
+  deadBg: 'rgba(255, 59, 31, 0.14)',
+  deadBorder: 'rgba(255, 59, 31, 0.38)',
+  warning: '#FFB800', // Referee Yellow Card
+  warningBg: 'rgba(255, 184, 0, 0.14)',
+  warningBorder: 'rgba(255, 184, 0, 0.38)',
+  info: '#4DA6FF', // Continental Floodlight Blue (Bala Europa)
+  infoBg: 'rgba(77, 166, 255, 0.14)',
 
-  // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A3A3A3',
-  textMuted: '#666666',
-  textInverse: '#0A0A0A',
+  // Editorial Chalk Typography
+  textPrimary: '#F5F2EB',
+  textSecondary: '#9BA3B0',
+  textMuted: '#5E6778',
+  textInverse: '#0B0C0E',
 
-  // Accents
-  gold: '#FFD700',
-  silver: '#C0C0C0',
-  bronze: '#CD7F32',
+  // Trophies & National Accents
+  gold: '#FFD000',
+  silver: '#C5CBD6',
+  bronze: '#D97736',
   mexicoGreen: '#006847',
-  spainRed: '#AA151B',
+  spainRed: '#C8102E',
 } as const;

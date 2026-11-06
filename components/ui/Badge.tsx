@@ -18,33 +18,35 @@ export const Badge: React.FC<BadgeProps> = ({
   const getContainerStyle = (): ViewStyle => {
     const base: ViewStyle = {
       alignSelf: 'flex-start',
-      borderRadius: 999,
+      borderRadius: 6,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: 'transparent',
     };
 
     if (size === 'sm') {
       base.paddingHorizontal = 8;
       base.paddingVertical = 3;
     } else {
-      base.paddingHorizontal = 12;
-      base.paddingVertical = 5;
+      base.paddingHorizontal = 10;
+      base.paddingVertical = 4;
     }
 
     switch (variant) {
       case 'alive':
-        return { ...base, backgroundColor: COLORS.aliveBg };
+        return { ...base, backgroundColor: COLORS.aliveBg, borderColor: COLORS.primaryBorder };
       case 'dead':
-        return { ...base, backgroundColor: COLORS.deadBg };
+        return { ...base, backgroundColor: COLORS.deadBg, borderColor: COLORS.deadBorder };
       case 'warning':
-        return { ...base, backgroundColor: COLORS.warningBg };
+        return { ...base, backgroundColor: COLORS.warningBg, borderColor: COLORS.warningBorder };
       case 'info':
         return { ...base, backgroundColor: COLORS.infoBg };
       case 'muted':
-        return { ...base, backgroundColor: COLORS.surfaceBorder };
+        return { ...base, backgroundColor: COLORS.surfaceElevated, borderColor: COLORS.surfaceBorder };
       case 'primary':
       default:
-        return { ...base, backgroundColor: COLORS.primaryMuted };
+        return { ...base, backgroundColor: COLORS.primaryMuted, borderColor: COLORS.primaryBorder };
     }
   };
 

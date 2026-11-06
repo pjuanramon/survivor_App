@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { League, Profile, Competition } from '../types/database';
+import { League, Profile, Round } from '../types/database';
 import { DEFAULT_COMPETITION } from '../constants/competitions';
 
 interface AppState {
@@ -14,6 +14,10 @@ interface AppState {
   // Active league
   activeLeague: League | null;
   setActiveLeague: (league: League | null) => void;
+
+  // Active round within activeLeague
+  activeRound: Round | null;
+  setActiveRound: (round: Round | null) => void;
 
   // Current user profile
   profile: Profile | null;
@@ -37,7 +41,10 @@ export const useAppStore = create<AppState>((set) => ({
   setLeagues: (leagues) => set({ leagues }),
 
   activeLeague: null,
-  setActiveLeague: (league) => set({ activeLeague: league }),
+  setActiveLeague: (league) => set({ activeLeague: league, activeRound: null }),
+
+  activeRound: null,
+  setActiveRound: (round) => set({ activeRound: round }),
 
   profile: null,
   setProfile: (profile) => set({ profile }),

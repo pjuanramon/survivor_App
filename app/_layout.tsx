@@ -3,9 +3,10 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { useFonts, Inter_400Regular, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import { Platform, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useDeepLinks } from '../hooks/useDeepLinks';
+import { COLORS } from '../constants/colors';
 
 // Prevent auto hide on native only
 if (Platform.OS !== 'web') {
@@ -33,38 +34,40 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'survivor-global-styles';
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
+      let style = document.getElementById(styleId) as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement('style');
         style.id = styleId;
-        style.textContent = `
-          html, body {
-            background-color: #0A0A0A !important;
-            color: #FFFFFF !important;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            width: 100%;
-            overflow-x: hidden;
-            overflow-y: auto !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-          }
-          #root, #root > div {
-            background-color: #0A0A0A !important;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            width: 100%;
-          }
-          * {
-            box-sizing: border-box;
-          }
-          input, button, select, textarea {
-            font-family: inherit;
-          }
-        `;
         document.head.appendChild(style);
       }
+      style.textContent = `
+        html, body {
+          background-color: ${COLORS.background} !important;
+          color: ${COLORS.textPrimary} !important;
+          margin: 0;
+          padding: 0;
+          min-height: 100vh;
+          width: 100%;
+          overflow-x: hidden;
+          overflow-y: auto !important;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        #root, #root > div {
+          background-color: ${COLORS.background} !important;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          width: 100%;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        input, button, select, textarea {
+          font-family: inherit;
+        }
+      `;
     }
   }, []);
 
@@ -84,28 +87,45 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Auth routing gatekeeper
+  // Auth & User Journey gatekeeper
   useEffect(() => {
     if (!initialized) return;
     if (Platform.OS !== 'web' && !fontsLoaded && !fontError) return;
 
     async function checkAuthAndNavigate() {
       try {
+        const currentRoute = segments.join('/');
+        const isPublicDoc =
+          currentRoute === 'rules' ||
+          currentRoute === 'privacy' ||
+          currentRoute === 'terms';
+
         if (!session) {
-          if (segments.length > 0 && segments[0] !== '(tabs)' && segments[0] !== 'rules' && segments[0] !== 'privacy' && segments[0] !== 'terms') {
-            // Allow public screens or route to auth
-          } else if (segments.length > 0 && segments[0] === '(tabs)') {
+          if (segments.length > 0 && segments[0] === '(tabs)') {
+            router.replace('/');
+          } else if (currentRoute === 'onboarding') {
             router.replace('/');
           }
         } else {
-          const { data: entries } = await supabase
-            .from('sur_entries')
-            .select('id')
-            .eq('player_id', session.user.id);
+          const [{ data: entries }, { data: memberships }] = await Promise.all([
+            supabase
+              .from('sur_entries')
+              .select('id')
+              .eq('player_id', session.user.id)
+              .limit(1),
+            supabase
+              .from('sur_league_members')
+              .select('league_id')
+              .eq('user_id', session.user.id)
+              .limit(1),
+          ]);
 
-          const currentRoute = segments.join('/');
-          if (!entries || entries.length === 0) {
-            if (currentRoute !== 'onboarding' && currentRoute !== 'rules') {
+          const hasArenaEnrolled =
+            (entries && entries.length > 0) ||
+            (memberships && memberships.length > 0);
+
+          if (!hasArenaEnrolled) {
+            if (currentRoute !== 'onboarding' && !isPublicDoc) {
               router.replace('/onboarding');
             }
           } else {
@@ -129,11 +149,11 @@ export default function RootLayout() {
   }, [session, initialized, segments, fontsLoaded, fontError]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#0A0A0A' },
+          contentStyle: { backgroundColor: COLORS.background },
         }}
       >
         <Stack.Screen name="index" options={{ animation: 'fade' }} />

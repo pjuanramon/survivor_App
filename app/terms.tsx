@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.surfaceBorder,
   },
   highlightCard: {
-    borderColor: 'rgba(0, 255, 157, 0.3)',
-    backgroundColor: 'rgba(0, 255, 157, 0.04)',
+    borderColor: COLORS.primaryBorder,
+    backgroundColor: COLORS.primarySubtle,
   },
   cardHeader: {
     flexDirection: 'row',

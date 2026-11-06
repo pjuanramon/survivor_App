@@ -149,9 +149,11 @@ export const LeagueSelector: React.FC<LeagueSelectorProps> = ({
                           >
                             {league.name}
                           </Text>
-                          {league.creator_id === currentUserId && (
+                          {league.creator_id === currentUserId &&
+                            league.invite_code !== 'EURO01' &&
+                            !league.name?.startsWith('Sala Euro-Survivor #') && (
                             <View style={styles.ownerBadge}>
-                              <Text style={styles.ownerBadgeText}>👑 Tu Liga</Text>
+                              <Text style={styles.ownerBadgeText}>👑 Admin</Text>
                             </View>
                           )}
                         </View>
@@ -351,7 +353,7 @@ const styles = StyleSheet.create({
   },
   leagueItemSelected: {
     borderColor: COLORS.primary,
-    backgroundColor: 'rgba(0, 255, 157, 0.06)',
+    backgroundColor: COLORS.primarySubtle,
   },
   leagueItemEmoji: {
     fontSize: 20,
@@ -427,12 +429,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   ownerBadge: {
-    backgroundColor: 'rgba(0, 255, 157, 0.15)',
+    backgroundColor: COLORS.primaryMuted,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 255, 157, 0.3)',
+    borderColor: COLORS.primaryBorder,
   },
   ownerBadgeText: {
     fontSize: 10,

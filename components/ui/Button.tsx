@@ -37,7 +37,7 @@ export const Button: React.FC<ButtonProps> = ({
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: 10,
       opacity: disabled || loading ? 0.5 : 1,
     };
 
@@ -91,9 +91,10 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getTextStyle = (): TextStyle => {
     const base: TextStyle = {
-      fontWeight: '700',
+      fontWeight: '900',
       textAlign: 'center',
-      letterSpacing: 0.5,
+      letterSpacing: 0.7,
+      textTransform: 'uppercase',
     };
 
     if (size === 'sm') base.fontSize = 13;

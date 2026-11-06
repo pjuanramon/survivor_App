@@ -111,7 +111,7 @@ export default function ProfileScreen() {
             <View style={styles.menuTextContainer}>
               <Text style={styles.menuItemText}>Reglamento Oficial</Text>
               <Text style={styles.menuItemSub}>
-                15 reglas de supervivencia, desempates y puntuación
+                Doble Bala Europea, Tarjetas Amarillas 🟨 y Rondas
               </Text>
             </View>
           </TouchableOpacity>
@@ -232,19 +232,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   avatarBox: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 82,
+    height: 82,
+    borderRadius: 18,
     backgroundColor: COLORS.surface,
     borderWidth: 2,
     borderColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
   },
   username: {
     color: COLORS.textPrimary,

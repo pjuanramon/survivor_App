@@ -30,7 +30,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# scratch scripts
+scratch/
 
 # typescript
 *.tsbuildinfo

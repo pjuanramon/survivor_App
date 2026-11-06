@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { COLORS } from '../../constants/colors';
-import { Heart, Minus, Plus } from 'lucide-react-native';
+import { ShieldCheck } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../lib/store';
 
@@ -29,9 +27,30 @@ export const CreatePicksModal: React.FC<CreatePicksModalProps> = ({
   leagueId,
   leagueName,
 }) => {
-  const [pickCount, setPickCount] = useState(1);
+  const [officialLives, setOfficialLives] = useState(1);
+  const [activeRoundId, setActiveRoundId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { triggerRefresh } = useAppStore();
+
+  useEffect(() => {
+    if (!visible || !leagueId) return;
+    supabase
+      .from('sur_rounds')
+      .select('id, max_lives_per_player')
+      .eq('league_id', leagueId)
+      .order('round_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setActiveRoundId(data.id);
+          setOfficialLives(data.max_lives_per_player || 1);
+        } else {
+          setActiveRoundId(null);
+          setOfficialLives(1);
+        }
+      });
+  }, [visible, leagueId]);
 
   const handleConfirm = async () => {
     try {
@@ -39,20 +58,32 @@ export const CreatePicksModal: React.FC<CreatePicksModalProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
-      // Create picks specifically for this league
-      const newEntries = Array.from({ length: pickCount }).map((_, i) => ({
+      const newEntries = Array.from({ length: officialLives }).map((_, i) => ({
         player_id: user.id,
-        entry_name: `Pick ${i + 1}`,
+        entry_name: `Vida ${i + 1}`,
         league_id: leagueId,
+        ...(activeRoundId ? { round_id: activeRoundId, yellow_cards: 0 } : {}),
         is_alive: true,
         total_points: 0,
         total_gf: 0,
       }));
 
       const { error } = await supabase.from('sur_entries').insert(newEntries);
-      if (error) throw error;
+      if (error && activeRoundId) {
+        const fallbackEntries = Array.from({ length: officialLives }).map((_, i) => ({
+          player_id: user.id,
+          entry_name: `Vida ${i + 1}`,
+          league_id: leagueId,
+          is_alive: true,
+          total_points: 0,
+          total_gf: 0,
+        }));
+        const { error: fbErr } = await supabase.from('sur_entries').insert(fallbackEntries);
+        if (fbErr) throw fbErr;
+      } else if (error) {
+        throw error;
+      }
 
-      // Ensure user is in league_members
       await supabase
         .from('sur_league_members')
         .insert({
@@ -66,65 +97,40 @@ export const CreatePicksModal: React.FC<CreatePicksModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Error creating picks:', err);
-      Alert.alert('Error', err.message || 'No se pudieron crear los picks');
+      console.error('Error activating official lives:', err);
+      Alert.alert('Error', err.message || 'No se pudieron activar tus vidas en la ronda');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title="Configurar Vidas">
+    <Modal visible={visible} onClose={onClose} title="Inscripción en Ronda">
       <View style={styles.content}>
         <View style={styles.badgeContainer}>
-          <Heart size={32} color={COLORS.primary} />
+          <ShieldCheck size={30} color={COLORS.primary} />
         </View>
 
         <Text style={styles.leagueLabel} numberOfLines={1}>
           {leagueName}
         </Text>
         <Text style={styles.subtext}>
-          Elige con cuántas vidas independientes quieres competir en esta liga (1 a 5).
+          En esta partida todos los participantes compiten en igualdad de condiciones con{' '}
+          <Text style={styles.boldVolt}>
+            {officialLives} {officialLives === 1 ? 'Vida Oficial' : 'Vidas Oficiales'}
+          </Text>.
         </Text>
 
-        {/* Counter */}
-        <View style={styles.counterRow}>
-          <TouchableOpacity
-            onPress={() => setPickCount(Math.max(1, pickCount - 1))}
-            style={[styles.counterBtn, pickCount <= 1 && styles.counterBtnDisabled]}
-            disabled={pickCount <= 1}
-          >
-            <Minus size={20} color={pickCount <= 1 ? COLORS.textMuted : COLORS.textPrimary} />
-          </TouchableOpacity>
-
-          <View style={styles.counterDisplay}>
-            <Text style={styles.counterNumber}>{pickCount}</Text>
-            <Text style={styles.counterSub}>
-              {pickCount === 1 ? 'VIDA' : 'VIDAS'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setPickCount(Math.min(5, pickCount + 1))}
-            style={[styles.counterBtn, pickCount >= 5 && styles.counterBtnDisabled]}
-            disabled={pickCount >= 5}
-          >
-            <Plus size={20} color={pickCount >= 5 ? COLORS.textMuted : COLORS.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Pick list preview */}
         <View style={styles.previewBox}>
-          {Array.from({ length: pickCount }).map((_, i) => (
+          {Array.from({ length: officialLives }).map((_, i) => (
             <View key={i} style={styles.previewTag}>
-              <Text style={styles.previewTagText}>⚽ Pick {i + 1}</Text>
+              <Text style={styles.previewTagText}>⚡ Vida {i + 1}</Text>
             </View>
           ))}
         </View>
 
-        {/* Action Button */}
         <Button
-          title={`Confirmar ${pickCount} ${pickCount === 1 ? 'Pick' : 'Picks'}`}
+          title={`Activar ${officialLives === 1 ? 'Mi Vida' : `Mis ${officialLives} Vidas`}`}
           onPress={handleConfirm}
           loading={loading}
           variant="primary"
@@ -140,15 +146,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 14,
     backgroundColor: COLORS.primaryMuted,
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 255, 157, 0.3)',
+    borderColor: COLORS.primaryBorder,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   leagueLabel: {
     fontSize: 18,
@@ -160,65 +166,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
-    lineHeight: 18,
+    marginTop: 6,
+    marginBottom: 18,
+    lineHeight: 19,
   },
-  counterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceElevated,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
-    padding: 8,
-    marginBottom: 20,
-  },
-  counterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: COLORS.surfaceBorder,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  counterBtnDisabled: {
-    opacity: 0.3,
-  },
-  counterDisplay: {
-    paddingHorizontal: 28,
-    alignItems: 'center',
-  },
-  counterNumber: {
-    fontSize: 32,
-    fontWeight: '900',
+  boldVolt: {
     color: COLORS.primary,
-  },
-  counterSub: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: COLORS.textSecondary,
-    letterSpacing: 1,
+    fontWeight: '900',
   },
   previewBox: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
     width: '100%',
   },
   previewTag: {
     backgroundColor: COLORS.surfaceElevated,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.surfaceBorder,
+    borderColor: COLORS.primaryBorder,
   },
   previewTagText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: '900',
+    color: COLORS.primary,
   },
 });

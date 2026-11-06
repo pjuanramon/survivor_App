@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: COLORS.surfaceBorder,
     width: '100%',
     maxWidth: 480,
